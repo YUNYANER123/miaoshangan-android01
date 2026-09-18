@@ -1,0 +1,8 @@
+name = "kaoyan-ai-proxy"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+
+# 可选：绑定自定义域名（不填也行，默认会给一个 *.workers.dev 子域）
+# routes = [
+#   { pattern = "ai.你的域名.com", custom_domain = true }
+# ]

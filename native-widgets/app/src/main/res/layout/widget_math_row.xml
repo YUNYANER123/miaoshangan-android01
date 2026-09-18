@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  数学组件的「万能行」：四种行（题干 / 选项 / 解析 / 下一题）共用这一份布局，
+  只靠 setViewVisibility 切换，所以 ListView 只需要一种 view type。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/mr_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/mr_counter"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="11sp"
+        android:textColor="#2F80ED"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/mr_stem"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="13sp"
+        android:textColor="#27496B"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/mr_src"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="10sp"
+        android:textColor="#6B8299"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:visibility="gone" />
+
+    <Button
+        android:id="@+id/mr_b"
+        style="@style/WidgetOpt"
+        android:text=""
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/mr_ans"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="12sp"
+        android:textColor="#27496B"
+        android:visibility="gone" />
+
+    <Button
+        android:id="@+id/mr_next"
+        style="@style/WidgetOpt"
+        android:text="下一题 →"
+        android:visibility="gone" />
+</LinearLayout>

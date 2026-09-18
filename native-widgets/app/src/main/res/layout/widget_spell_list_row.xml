@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 随机拼写组件「可滑动释义区」的单行布局：只放释义本身。
+     长释义行高会超过 ListView 视口，于是整块可以上下滚动
+     （RemoteViews 不支持 ScrollView，只能用集合视图滚动）。
+     输入框 s_display 与 结果 s_res 已移到主布局里固定显示，常显。 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="2dp">
+
+    <TextView
+        android:id="@+id/s_mean"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textSize="12sp"
+        android:textColor="#27496B" />
+</LinearLayout>

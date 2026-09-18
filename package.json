@@ -1,0 +1,22 @@
+{
+  "name": "miaoshangan-android01",
+  "version": "1.0.0",
+  "private": true,
+  "description": "喵上岸 · 28考研工作台 安卓安装包（Capacitor 包装的 PWA，AI 走自建 Cloudflare Worker + DeepSeek）",
+  "scripts": {
+    "add": "cap add android",
+    "sync": "cap sync android",
+    "build": "cap build android",
+    "open": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/filesystem": "^6.0.4",
+    "@capacitor/share": "^6.0.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2",
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/assets": "^3.0.5"
+  }
+}

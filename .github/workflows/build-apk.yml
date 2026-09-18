@@ -1,0 +1,101 @@
+name: Build Android APK
+
+# 在 push 到 main/master 或手动触发时，自动构建并上传可安装的 debug APK。
+# 整个过程不需要你本机装 Android Studio —— GitHub 的免费机器帮你编译。
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 本仓库（安卓包装）
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 安装 Capacitor CLI
+        run: npm install
+
+      - name: 拉取最新网页资源（来自 kaoyan28 仓库）
+        run: |
+          git clone --depth 1 https://github.com/YUNYANER123/kaoyan28.git _web
+          mkdir -p www
+          # kaoyan28 仓库根目录本身就是网页应用（index.html / js / sw.js 等）
+          cp -r _web/. www/
+          rm -rf www/.git _web
+          echo "---- www 内容 ----"
+          ls -la www
+
+      - name: 添加安卓平台并同步资源
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: 生成应用图标（猫咪图标）
+        run: npx @capacitor/assets generate --android
+
+      - name: 注入原生桌面小组件（7 个 App Widget）
+        run: node native-widgets/apply-patch.cjs
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        run: |
+          ANDROID_HOME=$HOME/android-sdk
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
+          mkdir -p $ANDROID_HOME/cmdline-tools
+          curl -sSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o /tmp/cmdtools.zip
+          unzip -q /tmp/cmdtools.zip -d $ANDROID_HOME/cmdline-tools
+          mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: 构建 debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: 整理 APK 产物
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist/miao-app-debug.apk
+          ls -la dist
+
+      - name: 上传 APK 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: miao-app-debug
+          path: dist/miao-app-debug.apk
+
+      # 发布成 GitHub Release，让手机用户能直接下载单文件 APK（无需解压 zip）
+      - name: 删除旧的滚动 Release（如有）
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release delete apk-latest --yes --cleanup-tag || true
+
+      - name: 发布 APK 到 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-latest
+          name: 喵上岸 APK（自动构建）
+          body: |
+            由 GitHub Actions 自动构建的 debug 安装包。
+            下载 miao-app-debug.apk 后，在安卓上允许「未知来源」安装即可。
+          files: dist/miao-app-debug.apk

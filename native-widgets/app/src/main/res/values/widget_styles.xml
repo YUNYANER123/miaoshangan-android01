@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="WidgetBtn">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:background">@drawable/btn_bg</item>
+        <item name="android:padding">3dp</item>
+        <item name="android:minHeight">28dp</item>
+        <item name="android:layout_margin">2dp</item>
+    </style>
+    <style name="WidgetBtnSmall">
+        <item name="android:layout_width">30dp</item>
+        <item name="android:layout_height">30dp</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:background">@drawable/btn_bg</item>
+        <item name="android:layout_margin">2dp</item>
+    </style>
+    <!-- 数学选择题的选项按钮：竖排、整行宽、不要把 layout_weight 带进来
+         （父容器是竖直 LinearLayout，weight 会把高度也拿去分配）。 -->
+    <style name="WidgetOpt">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">0</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:background">@drawable/btn_bg</item>
+        <item name="android:padding">2dp</item>
+        <item name="android:minHeight">28dp</item>
+        <item name="android:layout_margin">1dp</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
+    </style>
+    <style name="WidgetKey">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:background">@drawable/btn_bg</item>
+        <item name="android:minHeight">28dp</item>
+        <item name="android:layout_margin">2dp</item>
+    </style>
+</resources>

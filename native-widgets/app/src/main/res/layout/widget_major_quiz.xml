@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_bg"
+    android:padding="8dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+        <TextView
+            android:id="@+id/w_cat"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🐱"
+            android:textSize="18sp"
+            android:clickable="true"
+            android:focusable="true" />
+        <TextView
+            android:id="@+id/w_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="专业课题目"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#1E3A5F"
+            android:clickable="true"
+            android:focusable="true"
+            android:paddingStart="6dp" />
+        <TextView
+            android:id="@+id/w_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="11sp"
+            android:textColor="#6B8299" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/w_body"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center_vertical">
+        <TextView
+            android:id="@+id/mq_counter"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="13sp"
+            android:textColor="#2F80ED" />
+        <TextView
+            android:id="@+id/mq_q"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="14sp"
+            android:textColor="#27496B" />
+
+        <Button android:id="@+id/mq_o0" style="@style/WidgetBtn" android:layout_width="match_parent" android:text="" />
+        <Button android:id="@+id/mq_o1" style="@style/WidgetBtn" android:layout_width="match_parent" android:text="" />
+        <Button android:id="@+id/mq_o2" style="@style/WidgetBtn" android:layout_width="match_parent" android:text="" />
+        <Button android:id="@+id/mq_o3" style="@style/WidgetBtn" android:layout_width="match_parent" android:text="" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <Button android:id="@+id/mq_j0" style="@style/WidgetBtn" android:text="✓ 正确" />
+            <Button android:id="@+id/mq_j1" style="@style/WidgetBtn" android:text="✗ 错误" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/mq_ans"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="13sp"
+            android:textColor="#27496B" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <Button android:id="@+id/mq_fav" style="@style/WidgetBtn" android:text="★ 收藏" />
+            <Button android:id="@+id/mq_next" style="@style/WidgetBtn" android:text="下一题 →" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/w_tip"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="点 🐱 进 App"
+        android:textSize="10sp"
+        android:textColor="#6B8299"
+        android:gravity="center"
+        android:paddingTop="2dp" />
+
+    <TextView
+        android:id="@+id/w_empty"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:text=""
+        android:textSize="13sp"
+        android:textColor="#6B8299"
+        android:visibility="gone" />
+</LinearLayout>

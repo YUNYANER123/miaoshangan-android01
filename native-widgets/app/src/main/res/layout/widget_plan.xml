@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_bg"
+    android:padding="8dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+        <TextView
+            android:id="@+id/w_cat"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🐱"
+            android:textSize="18sp"
+            android:clickable="true"
+            android:focusable="true" />
+        <TextView
+            android:id="@+id/w_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="今日计划"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#1E3A5F"
+            android:clickable="true"
+            android:focusable="true"
+            android:paddingStart="6dp" />
+        <TextView
+            android:id="@+id/w_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="11sp"
+            android:textColor="#6B8299" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/w_body"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+        <!-- 必须用 ListView 才能滚动：RemoteViews 不支持 ScrollView，
+             集合类视图只能走 ListView + RemoteViewsService（PlanListWidgetService），
+             否则计划一多后面几条就永远看不到。 -->
+        <ListView
+            android:id="@+id/plan_list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:divider="@null"
+            android:dividerHeight="0dp"
+            android:scrollbars="vertical"
+            android:cacheColorHint="#00000000"
+            android:listSelector="@android:color/transparent"
+            android:overScrollMode="never" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/w_tip"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="列表可上下滑动 · 点一行标记完成"
+        android:textSize="10sp"
+        android:textColor="#6B8299"
+        android:paddingTop="2dp" />
+
+    <TextView
+        android:id="@+id/w_empty"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:text=""
+        android:textSize="13sp"
+        android:textColor="#6B8299"
+        android:visibility="gone" />
+</LinearLayout>

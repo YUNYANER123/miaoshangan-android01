@@ -1,0 +1,8 @@
+{
+  "appId": "com.kaoyan28.miao",
+  "appName": "喵上岸",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}

@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_bg"
+    android:padding="6dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+        <TextView
+            android:id="@+id/w_cat"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🐱"
+            android:textSize="16sp"
+            android:clickable="true"
+            android:focusable="true" />
+        <TextView
+            android:id="@+id/w_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="随机拼写"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:textColor="#1E3A5F"
+            android:clickable="true"
+            android:focusable="true"
+            android:paddingStart="6dp" />
+        <TextView
+            android:id="@+id/w_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="10sp"
+            android:textColor="#6B8299" />
+    </LinearLayout>
+
+    <!-- 主体：
+         - 释义放进可上下滑动的 ListView（长释义不再把下面按钮顶没）；
+         - 输入框 s_display 与 结果 s_res 固定在 ListView 之下、键盘之上，常显；
+         - 键盘固定在最底部。这样「输入框」始终可见，长释义也能滚动。 -->
+    <LinearLayout
+        android:id="@+id/w_body"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <ListView
+            android:id="@+id/spell_list"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:divider="@null"
+            android:dividerHeight="0dp"
+            android:scrollbars="vertical"
+            android:cacheColorHint="#00000000"
+            android:listSelector="@android:color/transparent"
+            android:overScrollMode="never" />
+
+        <TextView
+            android:id="@+id/s_display"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="（在此拼写）"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="#6B8299"
+            android:background="#FFFFFF"
+            android:padding="4dp"
+            android:layout_marginTop="2dp" />
+
+        <TextView
+            android:id="@+id/s_res"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="12sp"
+            android:textColor="#2E9E5B"
+            android:layout_marginTop="2dp"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/w_keys"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <Button android:id="@+id/key_a" style="@style/WidgetKey" android:text="a" />
+                <Button android:id="@+id/key_b" style="@style/WidgetKey" android:text="b" />
+                <Button android:id="@+id/key_c" style="@style/WidgetKey" android:text="c" />
+                <Button android:id="@+id/key_d" style="@style/WidgetKey" android:text="d" />
+                <Button android:id="@+id/key_e" style="@style/WidgetKey" android:text="e" />
+                <Button android:id="@+id/key_f" style="@style/WidgetKey" android:text="f" />
+                <Button android:id="@+id/key_g" style="@style/WidgetKey" android:text="g" />
+            </LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <Button android:id="@+id/key_h" style="@style/WidgetKey" android:text="h" />
+                <Button android:id="@+id/key_i" style="@style/WidgetKey" android:text="i" />
+                <Button android:id="@+id/key_j" style="@style/WidgetKey" android:text="j" />
+                <Button android:id="@+id/key_k" style="@style/WidgetKey" android:text="k" />
+                <Button android:id="@+id/key_l" style="@style/WidgetKey" android:text="l" />
+                <Button android:id="@+id/key_m" style="@style/WidgetKey" android:text="m" />
+                <Button android:id="@+id/key_n" style="@style/WidgetKey" android:text="n" />
+            </LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <Button android:id="@+id/key_o" style="@style/WidgetKey" android:text="o" />
+                <Button android:id="@+id/key_p" style="@style/WidgetKey" android:text="p" />
+                <Button android:id="@+id/key_q" style="@style/WidgetKey" android:text="q" />
+                <Button android:id="@+id/key_r" style="@style/WidgetKey" android:text="r" />
+                <Button android:id="@+id/key_s" style="@style/WidgetKey" android:text="s" />
+                <Button android:id="@+id/key_t" style="@style/WidgetKey" android:text="t" />
+                <Button android:id="@+id/key_u" style="@style/WidgetKey" android:text="u" />
+            </LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <Button android:id="@+id/key_v" style="@style/WidgetKey" android:text="v" />
+                <Button android:id="@+id/key_w" style="@style/WidgetKey" android:text="w" />
+                <Button android:id="@+id/key_x" style="@style/WidgetKey" android:text="x" />
+                <Button android:id="@+id/key_y" style="@style/WidgetKey" android:text="y" />
+                <Button android:id="@+id/key_z" style="@style/WidgetKey" android:text="z" />
+                <TextView android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+                <TextView android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="2dp">
+                <Button android:id="@+id/s_del" style="@style/WidgetBtn" android:text="⌫ 删" />
+                <Button android:id="@+id/s_submit" style="@style/WidgetBtn" android:text="提交" />
+                <Button android:id="@+id/s_next" style="@style/WidgetBtn" android:text="继续" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/w_tip"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="点 🐱 进 App 背单词 · 释义可上下滑动"
+        android:textSize="10sp"
+        android:textColor="#6B8299"
+        android:gravity="center"
+        android:paddingTop="2dp" />
+
+    <TextView
+        android:id="@+id/w_empty"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:text=""
+        android:textSize="13sp"
+        android:textColor="#6B8299"
+        android:visibility="gone" />
+</LinearLayout>
