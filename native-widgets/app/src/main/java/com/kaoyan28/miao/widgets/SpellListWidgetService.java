@@ -58,8 +58,6 @@ public class SpellListWidgetService extends RemoteViewsService {
         @Override
         public void onDestroy() {
             meaning = "";
-            typed = "";
-            res = "";
         }
 
         @Override
