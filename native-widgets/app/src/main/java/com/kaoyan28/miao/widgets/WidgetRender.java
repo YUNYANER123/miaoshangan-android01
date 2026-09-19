@@ -171,6 +171,13 @@ public final class WidgetRender {
         try { return new JSONObject(s); } catch (JSONException e) { return defaultState(); }
     }
 
+    /** 判断整数 v 是否在 JSON 数组 a 中（用于 words.favs）。 */
+    static boolean arrHas(JSONArray a, int v) {
+        if (a == null) return false;
+        for (int i = 0; i < a.length(); i++) { if (a.optInt(i, -1) == v) return true; }
+        return false;
+    }
+
     static JSONObject defaultState() {
         JSONObject o = new JSONObject();
         try {
@@ -325,6 +332,17 @@ public final class WidgetRender {
         boolean revealed = state.optBoolean("wordsRevealed", false);
         boolean learned = state.optBoolean("wordLearned", false);
 
+        // 标星按钮：App 的 store.words.favs 为权威来源；widget 本地 state.wordFaved 仅作即时反馈，
+        // 若两者冲突以快照为准并自愈（避免 App 侧取消标星后 widget 仍显示星）。
+        JSONArray wfavs = words != null ? words.optJSONArray("favs") : null;
+        int gidx = w != null ? w.optInt("idx", idx) : idx;
+        boolean snapFav = arrHas(wfavs, gidx);
+        boolean stFav = state != null && state.optBoolean("wordFaved", false);
+        if (stFav && !snapFav) { if (state != null) state.remove("wordFaved"); stFav = false; }
+        boolean faved = snapFav || stFav;
+        rv.setTextViewText(R.id.w_fav, faved ? "\u2605" : "\u2606");
+        rv.setTextColor(R.id.w_fav, faved ? 0xFFF5B301 : 0xFF9AA7B5);
+
         rv.setTextViewText(R.id.w_word, w.optString("word", ""));
         rv.setTextViewText(R.id.w_phone, w.optString("phonetic", ""));
         rv.setTextViewText(R.id.w_mean, revealed ? w.optString("meaning", "") : "🔒 点「显示释义」");
@@ -345,6 +363,9 @@ public final class WidgetRender {
         JSONObject exL = new JSONObject();
         try { exL.put("idx", w.optInt("idx", idx)); } catch (JSONException ignore) {}
         rv.setOnClickPendingIntent(R.id.w_learned, pi(ctx, T_WORDS, "learned", exL.toString(), 4));
+        JSONObject fex = new JSONObject();
+        try { fex.put("idx", gidx); } catch (JSONException ignore) {}
+        rv.setOnClickPendingIntent(R.id.w_fav, pi(ctx, T_WORDS, "fav", fex.toString(), 5));
         rv.setTextViewText(R.id.w_learned, learned ? "已计入 ✓" : "标记已背");
         rv.setTextViewText(R.id.w_tip, "点 🐱 进 App · 点释义看中文");
         rv.setTextColor(R.id.w_tip, C_MUTED);

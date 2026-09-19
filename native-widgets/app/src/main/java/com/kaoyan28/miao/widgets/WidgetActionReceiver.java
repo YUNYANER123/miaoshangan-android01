@@ -191,6 +191,17 @@ public class WidgetActionReceiver extends BroadcastReceiver {
                 a.put("t", "wordLearned"); a.put("idx", idx);
                 queue(ctx, a);
                 state.put("wordLearned", true);
+            } else if ("fav".equals(act)) {
+                int fidx = ex(extra).optInt("idx", -1);
+                if (fidx >= 0) {
+                    // 即时反馈：翻转 widget 本地 state.wordFaved（App 处理后会以快照为准自愈）
+                    boolean cur = state.optBoolean("wordFaved", false);
+                    try { if (cur) state.remove("wordFaved"); else state.put("wordFaved", true); } catch (JSONException ignore) {}
+                    // 入队，App 拉取后写入 store.words.favs（与 App 内标星同步）
+                    JSONObject a = new JSONObject();
+                    a.put("t", "wordFav"); a.put("idx", fidx);
+                    queue(ctx, a);
+                }
             }
         } catch (JSONException ignore) {}
     }
