@@ -194,12 +194,21 @@ public class WidgetActionReceiver extends BroadcastReceiver {
             } else if ("fav".equals(act)) {
                 int fidx = ex(extra).optInt("idx", -1);
                 if (fidx >= 0) {
-                    // 即时反馈：翻转 widget 本地 state.wordFaved（App 处理后会以快照为准自愈）
-                    boolean cur = state.optBoolean("wordFaved", false);
-                    try { if (cur) state.remove("wordFaved"); else state.put("wordFaved", true); } catch (JSONException ignore) {}
-                    // 入队，App 拉取后写入 store.words.favs（与 App 内标星同步）
+                    // 以「快照标星 || widget 本地乐观标记」为当前态进行翻转，得到目标态。
+                    // 这样无论快照是否已和 App 同步，点一下都能正确切换，不会与 App 内状态打架。
+                    JSONArray wfavs2 = words != null ? words.optJSONArray("favs") : null;
+                    boolean snapFav2 = WidgetRender.arrHas(wfavs2, fidx);
+                    boolean curFav = snapFav2 || state.optBoolean("wordFaved", false);
+                    boolean newFav = !curFav;
+                    try {
+                        if (newFav) state.put("wordFaved", true);
+                        else state.remove("wordFaved");
+                    } catch (JSONException ignore) {}
+                    // 入队，App 拉取后写入/移出 store.words.favs（与 App 内标星同步）。
+                    // 带明确的 add 标志（true=标星 / false=取消），网页端据此「设置/取消」而非「翻转」，
+                    // 避免多端竞态导致状态相反。
                     JSONObject a = new JSONObject();
-                    a.put("t", "wordFav"); a.put("idx", fidx);
+                    a.put("t", "wordFav"); a.put("idx", fidx); a.put("add", newFav);
                     queue(ctx, a);
                 }
             }

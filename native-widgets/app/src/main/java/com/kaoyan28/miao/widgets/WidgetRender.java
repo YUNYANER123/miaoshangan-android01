@@ -338,7 +338,14 @@ public final class WidgetRender {
         int gidx = w != null ? w.optInt("idx", idx) : idx;
         boolean snapFav = arrHas(wfavs, gidx);
         boolean stFav = state != null && state.optBoolean("wordFaved", false);
-        if (stFav && !snapFav) { if (state != null) state.remove("wordFaved"); stFav = false; }
+        // 自愈：仅当快照已确认该词被标星（App 已写入 store.words.favs）时才清掉 widget 本地的
+        // 乐观标记，避免与快照重复。绝不能因为「快照还没更新」就清掉 wordFaved —— 否则刚点下的
+        // 星标会被立刻还原成☆，表现为「点了没反应 / 点不动」（这就是之前标星按钮失效的原因）。
+        if (snapFav && stFav) {
+            if (state != null) state.remove("wordFaved");
+            stFav = false;
+            try { Store.writeState(ctx, state.toString()); } catch (Exception ignore) {}
+        }
         boolean faved = snapFav || stFav;
         rv.setTextViewText(R.id.w_fav, faved ? "\u2605" : "\u2606");
         rv.setTextColor(R.id.w_fav, faved ? 0xFFF5B301 : 0xFF9AA7B5);
