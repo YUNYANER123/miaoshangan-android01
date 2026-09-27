@@ -326,6 +326,20 @@ public final class WidgetRender {
         if (pool == null || pool.length() == 0) {
             return empty(ctx, T_WORDS, "暂无单词数据\n点此打开 App 同步");
         }
+        // 以 App 当前单词（快照 words.idx）为权威：当 App 端的当前单词下标发生变化时，
+        // 组件收敛回 pool[0]（= App 当前词），并重置「显示释义 / 已标记已背」状态。
+        // 这样从 App 切回组件永远看到的是 App 当前词，且默认隐藏释义、未标记已背，
+        // 不会因为 pool 随 App 推进而平移、把旧词的 reveal/learned 误套到新词上。
+        int snapIdx = words.optInt("idx", 0);
+        if (state != null && state.optInt("lastSnapIdx", -1) != snapIdx) {
+            try {
+                state.put("wordIdx", 0);
+                state.put("wordsRevealed", false);
+                state.put("wordLearned", false);
+                state.put("lastSnapIdx", snapIdx);
+                Store.writeState(ctx, state.toString());
+            } catch (JSONException ignore) {}
+        }
         int idx = Math.max(0, Math.min(state.optInt("wordIdx", 0), pool.length() - 1));
         JSONObject w = pool.optJSONObject(idx);
         if (w == null) w = pool.optJSONObject(0);

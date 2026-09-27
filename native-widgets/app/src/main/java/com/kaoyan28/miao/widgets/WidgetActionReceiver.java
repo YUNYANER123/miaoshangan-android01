@@ -178,11 +178,20 @@ public class WidgetActionReceiver extends BroadcastReceiver {
             int n = (p != null) ? p.length() : 1;
             if ("nav".equals(act)) {
                 int d = ex(extra).optInt("d", 1);
-                int idx = (state.optInt("wordIdx", 0) + d) % n;
+                int cur = state.optInt("wordIdx", 0);
+                int idx = (cur + d) % n;
                 if (idx < 0) idx += n;
                 state.put("wordIdx", idx);
                 state.put("wordsRevealed", false);
                 state.put("wordLearned", false);
+                // 把组件内的导航同步回 App：pool[idx] 对应的绝对下标 = 快照 words.idx + idx，
+                // 入队 wordNav，App 拉取后把 store.words.idx 设成该绝对下标，实现「两端背到同一个词」。
+                int snapIdx = (words != null) ? words.optInt("idx", 0) : 0;
+                int absIdx = snapIdx + idx; // 池从 words.idx 起序、长度 <= EN_WORDS.length，App 侧会再 % length
+                JSONObject a = new JSONObject();
+                a.put("t", "wordNav");
+                a.put("idx", absIdx);
+                queue(ctx, a);
             } else if ("reveal".equals(act)) {
                 state.put("wordsRevealed", !state.optBoolean("wordsRevealed", false));
             } else if ("learned".equals(act)) {
