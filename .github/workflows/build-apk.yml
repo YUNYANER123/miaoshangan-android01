@@ -66,6 +66,37 @@ jobs:
           yes | sdkmanager --licenses
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
+      # 固定签名密钥：第一次运行在仓库内生成 native-widgets/debug.keystore 并写回 main，
+      # 之后所有构建复用同一把密钥 → APK 签名一致 → 可「覆盖安装」无需卸载重装。
+      # 注：用 checkout 注入的令牌推送，并清掉 http.extraheader，避免「URL 内联 token + extraheader」
+      # 两套认证冲突导致 401（密钥写不回仓库就会每次重新生成 → 一直签名冲突）。
+      - name: 准备固定签名密钥（覆盖安装不再报签名冲突）
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          KEY=native-widgets/debug.keystore
+          if [ ! -f "$KEY" ]; then
+            echo "首次运行：生成固定 debug 签名密钥并写回仓库..."
+            keytool -genkeypair -v -keystore "$KEY" -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass android -keypass android \
+              -dname "CN=Android Debug,O=Android,C=US"
+            git config user.email "ci@miao.local"
+            git config user.name "Miao CI"
+            git add "$KEY"
+            git commit -m "ci: 新增固定 debug 签名密钥（支持 APK 覆盖安装）"
+            # 清掉 checkout 注入的 extraheader，改为在 remote URL 内置令牌，避免「两套认证」冲突
+            git config --unset-all http.extraheader || true
+            git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/YUNYANER123/miaoshangan-android01.git"
+            git push origin HEAD:main
+            echo "已把固定密钥写回 main。"
+          else
+            echo "仓库内已有固定密钥，直接复用。"
+          fi
+          mkdir -p "$HOME/.android"
+          cp "$KEY" "$HOME/.android/debug.keystore"
+          echo "keystore ready: $(ls -l "$HOME/.android/debug.keystore")"
+
       - name: 构建 debug APK
         run: |
           cd android
@@ -95,6 +126,8 @@ jobs:
         with:
           tag_name: apk-latest
           name: 喵上岸 APK（自动构建）
+          draft: false
+          prerelease: false
           body: |
             由 GitHub Actions 自动构建的 debug 安装包。
             下载 miao-app-debug.apk 后，在安卓上允许「未知来源」安装即可。
