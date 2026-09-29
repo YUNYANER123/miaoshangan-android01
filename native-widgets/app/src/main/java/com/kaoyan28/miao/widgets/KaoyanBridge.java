@@ -13,7 +13,7 @@ import com.getcapacitor.PluginMethod;
 /**
  * Bridge between the web app (JS) and native widgets.
  *   pushSnapshot(value)  : web app calls on every save -> persists the view-model
- *                          and broadcasts a refresh so all home-screen widgets update.
+ *                          and refreshes all home-screen widgets immediately.
  *   pullActions()        : web app calls on resume -> returns queued widget mutations
  *                          (as a JSON array string) and clears the queue.
  *   getSnapshot()        : returns the current snapshot (used for debugging).
@@ -25,9 +25,12 @@ public class KaoyanBridge extends Plugin {
     public void pushSnapshot(PluginCall call) {
         String v = call.getString("value", null);
         if (v != null) Store.writeSnapshot(getContext(), v);
-        Intent i = new Intent(WidgetActionReceiver.ACTION_REFRESH);
-        i.setPackage(getContext().getPackageName());
-        getContext().sendBroadcast(i);
+        // 关键修复：Android 8+ 会静默丢弃「manifest 上注册的隐式广播」——
+        // 旧实现用 sendBroadcast(ACTION_REFRESH)（只 setPackage、未 setClass）属于隐式广播，
+        // 在绝大多数机型上根本到不了 WidgetActionReceiver，于是「保存 / 导入数据后桌面组件不刷新，
+        // 必须重新添加才显示」（背单词/拼写没有导入数据也一直空白、专业课知识点/题目导入后仍空白）。
+        // 改为同进程内直接刷新所有已添加的组件：任何数据变化（导入、勾选、标星、导航）都立即生效。
+        try { WidgetRender.refreshAll(getContext()); } catch (Exception ignore) {}
         JSObject r = new JSObject();
         r.put("ok", true);
         call.resolve(r);
