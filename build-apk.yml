@@ -66,6 +66,28 @@ jobs:
           yes | sdkmanager --licenses
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
+      # 固定签名密钥：让所有构建共用同一把 debug 密钥，支持「覆盖安装」而非每次卸载重装。
+      # 第一次运行会在仓库里生成并提交 native-widgets/debug.keystore（会多触发一次构建，之后复用同一把）。
+      - name: 准备固定签名密钥（覆盖安装不再报签名冲突）
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          KEY=native-widgets/debug.keystore
+          if [ ! -f "$KEY" ]; then
+            keytool -genkeypair -v -keystore "$KEY" -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass android -keypass android \
+              -dname "CN=Android Debug,O=Android,C=US"
+            git config user.email "ci@miao.local"
+            git config user.name "Miao CI"
+            git add "$KEY"
+            git commit -m "ci: 新增固定 debug 签名密钥，支持 APK 覆盖安装" || true
+            git push https://x-access-token:${GH_TOKEN}@github.com/YUNYANER123/miaoshangan-android01.git HEAD:main || true
+          fi
+          mkdir -p "$HOME/.android"
+          cp "$KEY" "$HOME/.android/debug.keystore"
+          echo "keystore ready: $(ls -l "$HOME/.android/debug.keystore")"
+
       - name: 构建 debug APK
         run: |
           cd android
