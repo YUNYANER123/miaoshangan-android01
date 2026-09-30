@@ -31,6 +31,8 @@ jobs:
           mkdir -p www
           # kaoyan28 仓库根目录本身就是网页应用（index.html / js / sw.js 等）
           cp -r _web/. www/
+          echo "---- kaoyan28 拉取到的提交 ----"
+          git -C _web log -1 --oneline
           rm -rf www/.git _web
           echo "---- www 内容 ----"
           ls -la www
@@ -45,6 +47,26 @@ jobs:
 
       - name: 注入原生桌面小组件（7 个 App Widget）
         run: node native-widgets/apply-patch.cjs
+
+      # 自检：把「网页资源是否为最新版 / 原生组件代码是否注入成功」打印到构建日志，
+      # 便于直接确认 APK 里打包的到底是哪一份代码（排查「改了但手机上没变化」）。
+      - name: 自检：确认网页资源与原生组件已就位
+        run: |
+          echo "==== 1. www/js/app.js ===="
+          ls -l www/js/app.js
+          md5sum www/js/app.js
+          echo -n "showGlobalDiag: ";   grep -c "showGlobalDiag"   www/js/app.js || echo 0
+          echo -n "showVersionLine: ";  grep -c "showVersionLine"  www/js/app.js || echo 0
+          echo -n "widgetMajorAll: ";   grep -c "widgetMajorAll"   www/js/app.js || echo 0
+          echo "==== 2. cap sync 后打进 APK 的 assets/public/js/app.js ===="
+          ls -l android/app/src/main/assets/public/js/app.js || echo "MISSING"
+          md5sum android/app/src/main/assets/public/js/app.js || true
+          echo "==== 3. MainActivity 是否注册 KaoyanBridge ===="
+          grep -n "KaoyanBridge" android/app/src/main/java/com/kaoyan28/miao/MainActivity.java || echo "!!! 未注册 !!!"
+          echo "==== 4. AndroidManifest 中的 AppWidget receiver 数量 ===="
+          grep -c "android.appwidget.provider" android/app/src/main/AndroidManifest.xml || echo 0
+          echo "==== 5. 组件布局文件 ===="
+          ls android/app/src/main/res/layout | grep -i widget || echo "!!! 无组件布局 !!!"
 
       # 版本号每次构建都递增（versionCode / versionName 用 run_number），
       # 且 APK 文件名带上版本号 —— 这样每个包的文件名都不同，
