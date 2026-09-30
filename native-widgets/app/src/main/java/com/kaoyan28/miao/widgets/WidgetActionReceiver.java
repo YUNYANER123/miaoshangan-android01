@@ -199,7 +199,19 @@ public class WidgetActionReceiver extends BroadcastReceiver {
                 JSONObject a = new JSONObject();
                 a.put("t", "wordLearned"); a.put("idx", idx);
                 queue(ctx, a);
+                boolean wasLearned = state.optBoolean("wordLearned", false);
                 state.put("wordLearned", true);
+                // 乐观更新快照里的「今日已背 / 累计」计数，让组件上的数字立刻 +1
+                // （否则要等 App 处理动作并推送新快照后才会变，看起来像「一直是 0」）。
+                // App 下次推送快照时会用权威值覆盖，因此不会重复计数。
+                if (!wasLearned && words != null) {
+                    try {
+                        words.put("todayCnt", words.optInt("todayCnt", 0) + 1);
+                        words.put("totalLearned", words.optInt("totalLearned", 0) + 1);
+                        snap.put("words", words);
+                        Store.writeSnapshot(ctx, snap.toString());
+                    } catch (Exception ignore) {}
+                }
             } else if ("fav".equals(act)) {
                 int fidx = ex(extra).optInt("idx", -1);
                 if (fidx >= 0) {
@@ -207,11 +219,14 @@ public class WidgetActionReceiver extends BroadcastReceiver {
                     // 这样无论快照是否已和 App 同步，点一下都能正确切换，不会与 App 内状态打架。
                     JSONArray wfavs2 = words != null ? words.optJSONArray("favs") : null;
                     boolean snapFav2 = WidgetRender.arrHas(wfavs2, fidx);
-                    boolean curFav = snapFav2 || state.optBoolean("wordFaved", false);
+                    // 本地乐观标记必须「按单词下标」记录（wordFavedIdx），不能用一个不分单词的全局布尔：
+                    // 否则给单词 A 标星后翻到 B，B 会跟着显示★（星标串位）。
+                    boolean localFav = state.optInt("wordFavedIdx", -1) == fidx;
+                    boolean curFav = snapFav2 || localFav;
                     boolean newFav = !curFav;
                     try {
-                        if (newFav) state.put("wordFaved", true);
-                        else state.remove("wordFaved");
+                        if (newFav) state.put("wordFavedIdx", fidx);
+                        else state.remove("wordFavedIdx");
                     } catch (JSONException ignore) {}
                     // 入队，App 拉取后写入/移出 store.words.favs（与 App 内标星同步）。
                     // 带明确的 add 标志（true=标星 / false=取消），网页端据此「设置/取消」而非「翻转」，
