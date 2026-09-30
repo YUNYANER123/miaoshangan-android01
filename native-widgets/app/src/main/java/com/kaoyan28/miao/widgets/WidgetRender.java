@@ -259,6 +259,14 @@ public final class WidgetRender {
         }
         rv.setViewVisibility(R.id.w_empty, android.view.View.GONE);
         rv.setViewVisibility(R.id.w_body, android.view.View.VISIBLE);
+        // 标题显示「今日已完成 / 今日总数」，一眼看到进度
+        int pTotal = plan.length();
+        int pDone = 0;
+        for (int i = 0; i < pTotal; i++) {
+            JSONObject it = plan.optJSONObject(i);
+            if (it != null && it.optBoolean("done", false)) pDone++;
+        }
+        rv.setTextViewText(R.id.w_title, "今日计划 " + pDone + "/" + pTotal);
         // 列表行由 PlanListWidgetService 逐行提供（只有集合视图才能滚动，ScrollView 不在白名单里）
         Intent svc = new Intent(ctx, PlanListWidgetService.class);
         rv.setRemoteAdapter(R.id.plan_list, svc);
