@@ -52,4 +52,21 @@ public class KaoyanBridge extends Plugin {
         r.put("snapshot", s == null ? "" : s);
         call.resolve(r);
     }
+
+    // Capacitor 自带的 App 插件未在本工程注册（JS 侧 Capacitor.Plugins.App 取不到），
+    // 导致设置页读不到版本号。这里直接用 PackageManager 读真实 versionName 供网页显示。
+    @PluginMethod()
+    public void getAppVersion(PluginCall call) {
+        JSObject r = new JSObject();
+        try {
+            android.content.pm.PackageInfo pi = getContext().getPackageManager()
+                    .getPackageInfo(getContext().getPackageName(), 0);
+            r.put("version", pi.versionName == null ? "" : pi.versionName);
+            r.put("build", String.valueOf(pi.versionCode));
+        } catch (Exception e) {
+            r.put("version", "");
+            r.put("build", "");
+        }
+        call.resolve(r);
+    }
 }
