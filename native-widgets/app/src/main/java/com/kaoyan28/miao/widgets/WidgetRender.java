@@ -351,12 +351,14 @@ public final class WidgetRender {
         JSONArray wfavs = words != null ? words.optJSONArray("favs") : null;
         int gidx = w != null ? w.optInt("idx", idx) : idx;
         boolean snapFav = arrHas(wfavs, gidx);
-        boolean stFav = state != null && state.optBoolean("wordFaved", false);
+        // 本地乐观标记按「单词下标」记录：只有被点的那个词才显示★，
+        // 避免给 A 标星后翻到 B，B 也跟着显示★（星标串位）。
+        boolean stFav = state != null && state.optInt("wordFavedIdx", -1) == gidx;
         // 自愈：仅当快照已确认该词被标星（App 已写入 store.words.favs）时才清掉 widget 本地的
         // 乐观标记，避免与快照重复。绝不能因为「快照还没更新」就清掉 wordFaved —— 否则刚点下的
         // 星标会被立刻还原成☆，表现为「点了没反应 / 点不动」（这就是之前标星按钮失效的原因）。
         if (snapFav && stFav) {
-            if (state != null) state.remove("wordFaved");
+            if (state != null) state.remove("wordFavedIdx");
             stFav = false;
             try { Store.writeState(ctx, state.toString()); } catch (Exception ignore) {}
         }
