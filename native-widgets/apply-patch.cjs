@@ -97,6 +97,54 @@ if (fs.existsSync(mainAct)) {
   log('WARN: MainActivity.java not found at ' + mainAct);
 }
 
+// ---- 3b: 桌面组件 🐱 跳对应页 ----
+// 由 WidgetRender.openApp(ctx, page) 通过启动 Intent 的 "page" extra 传入目标页。
+// 冷启动：onCreate 读 extra 存到静态变量，网页启动后通过 KaoyanBridge.getLaunchPage() 取出跳转；
+// 热启动（App 已在后台）：onNewIntent 读 extra 并直接 evaluateJavascript 跳转。
+if (fs.existsSync(mainAct)) {
+  let m = fs.readFileSync(mainAct, 'utf8');
+  if (!m.includes('sLaunchPage')) {
+    // 静态字段（启动页面）+ 取用即清空
+    m = m.replace(
+      /(public class MainActivity extends BridgeActivity \{)/,
+      '$1\n\n' +
+      '    // 桌面组件点 🐱 的跳转目标页（WidgetRender.openApp 经 Intent extra 传入，onNewIntent 可更新）\n' +
+      '    public static String sLaunchPage = "";\n\n' +
+      '    public static String consumeLaunchPage() { String p = sLaunchPage; sLaunchPage = ""; return p; }'
+    );
+    // onCreate 里读取启动 extra（冷启动路径）
+    m = m.replace(
+      'registerPlugin(KaoyanBridge.class);',
+      'registerPlugin(KaoyanBridge.class);\n' +
+      '        { String lp = getIntent() != null ? getIntent().getStringExtra("page") : null; if (lp != null && !lp.isEmpty()) sLaunchPage = lp; }'
+    );
+    // 注入 onNewIntent（热启动）+ forwardLaunchPage（直接执行 JS 跳转）
+    const methods =
+      '\n' +
+      '    @Override\n' +
+      '    public void onNewIntent(android.content.Intent intent) {\n' +
+      '        super.onNewIntent(intent);\n' +
+      '        String p = intent.getStringExtra("page");\n' +
+      '        if (p != null && !p.isEmpty()) { sLaunchPage = p; forwardLaunchPage(); sLaunchPage = ""; }\n' +
+      '    }\n' +
+      '    private void forwardLaunchPage() {\n' +
+      '        try {\n' +
+      '            android.webkit.WebView wv = (getBridge() != null) ? getBridge().getWebView() : null;\n' +
+      '            if (wv != null && !sLaunchPage.isEmpty()) {\n' +
+      '                final String p = sLaunchPage;\n' +
+      '                wv.post(() -> wv.evaluateJavascript("window.__goPage && window.__goPage(\'" + p + "\')", null));\n' +
+      '            }\n' +
+      '        } catch (Exception ignore) {}\n' +
+      '    }\n';
+    const ci = m.lastIndexOf('}');
+    m = m.slice(0, ci) + methods + m.slice(ci);
+    fs.writeFileSync(mainAct, m);
+    log('patched MainActivity.java (🐱 跳对应页：冷启动 getLaunchPage / 热启动 onNewIntent)');
+  } else {
+    log('MainActivity.java already patched for 🐱 page jump');
+  }
+}
+
 // ---- 4: AndroidManifest ----
 const mf = path.join(ANDROID, 'app', 'src', 'main', 'AndroidManifest.xml');
 if (fs.existsSync(mf)) {

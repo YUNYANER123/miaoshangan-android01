@@ -31,6 +31,13 @@ public final class WidgetRender {
     public static final String T_MAJP = "majorPoints";
     public static final String T_MAJQ = "majorQuiz";
 
+    // ---- 各组件点 🐱 后跳转到的 App 页面（与网页 index.html 的 data-page 一致）----
+    public static final String PAGE_PLAN = "plan";
+    public static final String PAGE_LIFE = "life";
+    public static final String PAGE_ENGLISH = "english";
+    public static final String PAGE_MATH = "math";
+    public static final String PAGE_MAJOR = "major";
+
     // ---- blue / white theme ----
     static final int C_TITLE = 0xFF1E3A5F;   // navy
     static final int C_BODY = 0xFF27496B;     // slate blue
@@ -155,10 +162,31 @@ public final class WidgetRender {
         return PendingIntent.getBroadcast(ctx, rc, i, flagsMutable());
     }
 
-    static PendingIntent openApp(Context ctx) {
+    static PendingIntent openApp(Context ctx, String page) {
         Intent i = ctx.getPackageManager().getLaunchIntentForPackage(ctx.getPackageName());
         if (i == null) i = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
-        return PendingIntent.getActivity(ctx, 99001, i, flags());
+        if (page != null && !page.isEmpty()) i.putExtra("page", page);
+        // 不同页面用不同的 requestCode，避免 FLAG_UPDATE_CURRENT 把 extra 互相覆盖
+        // （否则所有组件的 🐱 都会开到同一个页面）。
+        int rc = 99001 + (page == null ? 0 : (Math.abs(page.hashCode()) % 997));
+        return PendingIntent.getActivity(ctx, rc, i, flags());
+    }
+
+    /** 点 🐱 直接进入启动页（无特定页面）。 */
+    static PendingIntent openApp(Context ctx) { return openApp(ctx, null); }
+
+    /** 组件类型 → 点 🐱 要跳转的 App 页面。 */
+    static String pageForType(String type) {
+        switch (type) {
+            case T_PLAN: return PAGE_PLAN;
+            case T_LIFE: return PAGE_LIFE;
+            case T_WORDS: return PAGE_ENGLISH;
+            case T_SPELL: return PAGE_ENGLISH;
+            case T_MATH: return PAGE_MATH;
+            case T_MAJP: return PAGE_MAJOR;
+            case T_MAJQ: return PAGE_MAJOR;
+            default: return PAGE_PLAN;
+        }
     }
 
     static JSONObject parse(String s) {
@@ -236,9 +264,9 @@ public final class WidgetRender {
         rv.setViewVisibility(R.id.w_empty, android.view.View.VISIBLE);
         rv.setTextViewText(R.id.w_empty, msg == null ? "" : msg);
         rv.setTextColor(R.id.w_empty, C_MUTED);
-        rv.setOnClickPendingIntent(R.id.w_cat, openApp(ctx));
-        rv.setOnClickPendingIntent(R.id.w_empty, openApp(ctx));
-        try { rv.setOnClickPendingIntent(R.id.w_title, openApp(ctx)); } catch (Exception ignore) {}
+        rv.setOnClickPendingIntent(R.id.w_cat, openApp(ctx, pageForType(type)));
+        rv.setOnClickPendingIntent(R.id.w_empty, openApp(ctx, pageForType(type)));
+        try { rv.setOnClickPendingIntent(R.id.w_title, openApp(ctx, pageForType(type))); } catch (Exception ignore) {}
         return rv;
     }
 
@@ -273,7 +301,7 @@ public final class WidgetRender {
         rv.setPendingIntentTemplate(R.id.plan_list, piTemplate(ctx, T_PLAN, "toggle"));
         rv.setTextViewText(R.id.w_tip, "点 🐱 进 App · 点一行标记完成（列表可滑动）");
         rv.setTextColor(R.id.w_tip, C_MUTED);
-        rv.setOnClickPendingIntent(R.id.w_cat, openApp(ctx));
+        rv.setOnClickPendingIntent(R.id.w_cat, openApp(ctx, PAGE_PLAN));
         return rv;
     }
 
@@ -319,7 +347,7 @@ public final class WidgetRender {
         rv.setOnClickPendingIntent(R.id.bowel, pi(ctx, T_LIFE, "bowel", exB.toString(), 3));
         rv.setTextViewText(R.id.w_tip, "点 🐱 进 App 记录");
         rv.setTextColor(R.id.w_tip, C_MUTED);
-        rv.setOnClickPendingIntent(R.id.w_cat, openApp(ctx));
+        rv.setOnClickPendingIntent(R.id.w_cat, openApp(ctx, PAGE_LIFE));
         return rv;
     }
 
@@ -352,7 +380,9 @@ public final class WidgetRender {
         JSONObject w = pool.optJSONObject(idx);
         if (w == null) w = pool.optJSONObject(0);
         boolean revealed = state.optBoolean("wordsRevealed", false);
-        boolean learned = state.optBoolean("wordLearned", false);
+        // 已计入状态以快照为准：w.learned = 该词在 App 内 store.words.learned 中（已由网页带入快照），
+        // 不再用组件本地态 wordLearned（组件本地态会在每次导航被重置，导致「已背过的词」仍显示「标记已背」）。
+        boolean learned = w != null && w.optBoolean("learned", false);
 
         // 标星按钮：App 的 store.words.favs 为权威来源；widget 本地 state.wordFaved 仅作即时反馈，
         // 若两者冲突以快照为准并自愈（避免 App 侧取消标星后 widget 仍显示星）。
@@ -400,7 +430,7 @@ public final class WidgetRender {
         rv.setTextViewText(R.id.w_learned, learned ? "已计入 ✓" : "标记已背");
         rv.setTextViewText(R.id.w_tip, "点 🐱 进 App · 点释义看中文");
         rv.setTextColor(R.id.w_tip, C_MUTED);
-        rv.setOnClickPendingIntent(R.id.w_cat, openApp(ctx));
+        rv.setOnClickPendingIntent(R.id.w_cat, openApp(ctx, PAGE_ENGLISH));
         return rv;
     }
 
@@ -446,7 +476,7 @@ public final class WidgetRender {
 
         rv.setTextViewText(R.id.w_tip, "点 🐱 进 App 背单词 · 释义可上下滑动");
         rv.setTextColor(R.id.w_tip, C_MUTED);
-        rv.setOnClickPendingIntent(R.id.w_cat, openApp(ctx));
+        rv.setOnClickPendingIntent(R.id.w_cat, openApp(ctx, PAGE_ENGLISH));
         return rv;
     }
 
@@ -470,7 +500,7 @@ public final class WidgetRender {
         rv.setPendingIntentTemplate(R.id.m_list, piTemplate(ctx, T_MATH, "row"));
         rv.setTextViewText(R.id.w_tip, "点 🐱 进 App · 点 A/B/C/D 作答（列表可滑动）");
         rv.setTextColor(R.id.w_tip, C_MUTED);
-        rv.setOnClickPendingIntent(R.id.w_cat, openApp(ctx));
+        rv.setOnClickPendingIntent(R.id.w_cat, openApp(ctx, PAGE_MATH));
         return rv;
     }
 
@@ -503,7 +533,7 @@ public final class WidgetRender {
         rv.setOnClickPendingIntent(R.id.mp_fav, pi(ctx, T_MAJP, "fav", ex.toString(), 2));
         rv.setTextViewText(R.id.w_tip, "点 🐱 进 App · 点 ★ 同步收藏");
         rv.setTextColor(R.id.w_tip, C_MUTED);
-        rv.setOnClickPendingIntent(R.id.w_cat, openApp(ctx));
+        rv.setOnClickPendingIntent(R.id.w_cat, openApp(ctx, PAGE_MAJOR));
         return rv;
     }
 
@@ -585,7 +615,7 @@ public final class WidgetRender {
         rv.setOnClickPendingIntent(R.id.mq_next, pi(ctx, T_MAJQ, "next", null, 31));
         rv.setTextViewText(R.id.w_tip, "点 🐱 进 App · 点 ★ 同步收藏");
         rv.setTextColor(R.id.w_tip, C_MUTED);
-        rv.setOnClickPendingIntent(R.id.w_cat, openApp(ctx));
+        rv.setOnClickPendingIntent(R.id.w_cat, openApp(ctx, PAGE_MAJOR));
         return rv;
     }
 }

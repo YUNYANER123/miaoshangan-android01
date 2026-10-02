@@ -179,18 +179,25 @@ public class WidgetActionReceiver extends BroadcastReceiver {
             if ("nav".equals(act)) {
                 int d = ex(extra).optInt("d", 1);
                 int cur = state.optInt("wordIdx", 0);
-                int idx = (cur + d) % n;
-                if (idx < 0) idx += n;
-                state.put("wordIdx", idx);
+                int snapIdx = (words != null) ? words.optInt("idx", 0) : 0;
+                // 当前显示词的绝对下标（池从 snapIdx 起序，wordIdx 为池内偏移）
+                int curAbs = snapIdx + cur;
+                // 目标绝对下标：按「整本词表」上下移动，而不是在 20 词的小池里取模 ——
+                // 旧实现 (cur+d)%n 在池首点「上一个」会绕回池尾（差 19 个词），就是「点 3151 跳到 3170」的根因。
+                int targetAbs = curAbs + d;
+                if (targetAbs < 0) targetAbs = 0;
+                // 目标仍在当前 20 词池内 → 直接移动池内偏移，立即生效、无需等 App 回推；
+                // 已越过池边界 → 停在边界，把绝对目标交给 App，App 把当前词收敛过去后回推新快照，
+                // 组件再收敛到池首显示该词（renderWords 在 snapIdx 变化时会把 wordIdx 重置为 0）。
+                int newIdx;
+                if (targetAbs >= snapIdx && targetAbs < snapIdx + n) newIdx = targetAbs - snapIdx;
+                else newIdx = (d > 0) ? (n - 1) : 0;
+                state.put("wordIdx", newIdx);
                 state.put("wordsRevealed", false);
                 state.put("wordLearned", false);
-                // 把组件内的导航同步回 App：pool[idx] 对应的绝对下标 = 快照 words.idx + idx，
-                // 入队 wordNav，App 拉取后把 store.words.idx 设成该绝对下标，实现「两端背到同一个词」。
-                int snapIdx = (words != null) ? words.optInt("idx", 0) : 0;
-                int absIdx = snapIdx + idx; // 池从 words.idx 起序、长度 <= EN_WORDS.length，App 侧会再 % length
                 JSONObject a = new JSONObject();
                 a.put("t", "wordNav");
-                a.put("idx", absIdx);
+                a.put("idx", targetAbs); // App 侧会 % EN_WORDS.length
                 queue(ctx, a);
             } else if ("reveal".equals(act)) {
                 state.put("wordsRevealed", !state.optBoolean("wordsRevealed", false));
@@ -201,13 +208,15 @@ public class WidgetActionReceiver extends BroadcastReceiver {
                 queue(ctx, a);
                 boolean wasLearned = state.optBoolean("wordLearned", false);
                 state.put("wordLearned", true);
-                // 乐观更新快照里的「今日已背 / 累计」计数，让组件上的数字立刻 +1
-                // （否则要等 App 处理动作并推送新快照后才会变，看起来像「一直是 0」）。
-                // App 下次推送快照时会用权威值覆盖，因此不会重复计数。
                 if (!wasLearned && words != null) {
                     try {
                         words.put("todayCnt", words.optInt("todayCnt", 0) + 1);
                         words.put("totalLearned", words.optInt("totalLearned", 0) + 1);
+                        // 乐观把当前池内单词标记「已计入」，让组件立刻显示「√已计入」
+                        // （否则要等 App 回推快照才变；App 回推会用权威值覆盖，不会重复）。
+                        int wi = state.optInt("wordIdx", 0);
+                        JSONObject cur = (p != null) ? p.optJSONObject(wi) : null;
+                        if (cur != null) cur.put("learned", true);
                         snap.put("words", words);
                         Store.writeSnapshot(ctx, snap.toString());
                     } catch (Exception ignore) {}

@@ -69,4 +69,14 @@ public class KaoyanBridge extends Plugin {
         }
         call.resolve(r);
     }
+
+    // 桌面组件点 🐱 跳对应页：原生 MainActivity 把目标页写进启动 extra 并暂存到静态变量，
+    // 网页启动后调本方法取出并跳转（取出即清空，避免冷启动后再被 onResume 重复跳转）。
+    @PluginMethod()
+    public void getLaunchPage(PluginCall call) {
+        String p = com.kaoyan28.miao.MainActivity.consumeLaunchPage();
+        JSObject r = new JSObject();
+        r.put("page", p == null ? "" : p);
+        call.resolve(r);
+    }
 }
