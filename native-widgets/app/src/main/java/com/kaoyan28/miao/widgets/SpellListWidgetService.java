@@ -45,7 +45,9 @@ public class SpellListWidgetService extends RemoteViewsService {
             try {
                 JSONObject snap = WidgetRender.parse(Store.readSnapshot(ctx));
                 JSONObject st = WidgetRender.parseState(Store.readState(ctx));
-                JSONArray pool = snap.optJSONArray("spellPool");
+                // 按设备当前日期取「当天」拼写池（午夜翻页）
+                JSONObject day = WidgetRender.dayFor(snap, WidgetRender.todayDevice());
+                JSONArray pool = day.optJSONArray("spellPool");
                 if (pool == null || pool.length() == 0) return;
                 int idx = Math.max(0, Math.min(st.optInt("spellIdx", 0), pool.length() - 1));
                 JSONObject w = pool.optJSONObject(idx);

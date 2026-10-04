@@ -99,7 +99,9 @@ public class MathListWidgetService extends RemoteViewsService {
             try {
                 JSONObject snap = WidgetRender.parse(Store.readSnapshot(ctx));
                 JSONObject st = WidgetRender.parseState(Store.readState(ctx));
-                JSONArray math = snap.optJSONArray("math");
+                // 按设备当前日期取「当天」数学题（午夜翻页）
+                JSONObject day = WidgetRender.dayFor(snap, WidgetRender.todayDevice());
+                JSONArray math = day.optJSONArray("math");
                 total = math != null ? math.length() : 0;
                 if (total <= 0) return;
                 qi = Math.max(0, Math.min(st.optInt("mathQi", 0), total - 1));

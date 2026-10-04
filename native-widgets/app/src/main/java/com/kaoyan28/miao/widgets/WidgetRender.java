@@ -2,6 +2,7 @@ package com.kaoyan28.miao.widgets;
 
 import com.kaoyan28.miao.R;
 
+import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.content.ComponentName;
@@ -10,6 +11,9 @@ import android.content.Intent;
 import android.graphics.Paint;
 import android.os.Build;
 import android.widget.RemoteViews;
+
+import java.util.Calendar;
+import java.util.Locale;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -83,6 +87,59 @@ public final class WidgetRender {
         }
     }
 
+    // ============================================================
+    //  午夜翻页：即使不打开 App，跨 00:00 也让组件按设备当前日期刷新
+    // ============================================================
+
+    /** 设备当前日期，格式 YYYY-MM-DD（与网页 todayStr / 快照 date 字段一致）。 */
+    public static String todayDevice() {
+        Calendar c = Calendar.getInstance();
+        return String.format(Locale.US, "%04d-%02d-%02d",
+                c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH));
+    }
+
+    /** 取某一天（设备日期）的「每日类」数据；快照缺 days 或当天不存在时回退到顶层（今天）字段。 */
+    static JSONObject dayFor(JSONObject snap, String td) {
+        JSONObject f = new JSONObject();
+        try {
+            JSONObject days = snap != null ? snap.optJSONObject("days") : null;
+            JSONObject d = (days != null) ? days.optJSONObject(td) : null;
+            if (d != null) return d;
+            // 兜底：老版本快照 / days 缺失 —— 直接用顶层字段拼出「今天」对象
+            if (snap != null) {
+                if (snap.has("plan")) f.put("plan", snap.optJSONArray("plan"));
+                if (snap.has("life")) f.put("life", snap.optJSONObject("life"));
+                if (snap.has("spellPool")) f.put("spellPool", snap.optJSONArray("spellPool"));
+                if (snap.has("math")) f.put("math", snap.optJSONArray("math"));
+                if (snap.has("majorPoints")) f.put("majorPoints", snap.optJSONObject("majorPoints"));
+                if (snap.has("majorQuiz")) f.put("majorQuiz", snap.optJSONObject("majorQuiz"));
+            }
+        } catch (JSONException ignore) {}
+        return f;
+    }
+
+    /** 排程一个「下一次 00:00」的精确闹钟，到点广播 ACTION_REFRESH 让所有组件重绘。
+     *  RTC_WAKEUP 保证设备休眠也能触发；每次排程都取下一个 00:00，自然实现「每天一次」。 */
+    public static void scheduleMidnight(Context ctx) {
+        try {
+            AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
+            if (am == null) return;
+            Intent i = new Intent(ctx, WidgetActionReceiver.class);
+            i.setAction(WidgetActionReceiver.ACTION_REFRESH);
+            PendingIntent pi = PendingIntent.getBroadcast(ctx, 0x4D314E49, i, flags());
+            Calendar c = Calendar.getInstance();
+            c.set(Calendar.HOUR_OF_DAY, 0);
+            c.set(Calendar.MINUTE, 0);
+            c.set(Calendar.SECOND, 3);
+            c.set(Calendar.MILLISECOND, 0);
+            if (c.getTimeInMillis() <= System.currentTimeMillis()) c.add(Calendar.DAY_OF_MONTH, 1);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, c.getTimeInMillis(), pi);
+            else
+                am.setExact(AlarmManager.RTC_WAKEUP, c.getTimeInMillis(), pi);
+        } catch (Exception ignore) {}
+    }
+
     static Class<?> providerClass(String type) {
         switch (type) {
             case T_PLAN: return PlanWidget.class;
@@ -103,14 +160,16 @@ public final class WidgetRender {
         try {
             JSONObject snap = parse(snapJson);
             JSONObject state = parseState(stateJson);
+            // 按设备当前日期取「每日类」数据（午夜翻页的关键：跨 00:00 后 todayDevice() 变成新一天）
+            JSONObject day = dayFor(snap, todayDevice());
             switch (type) {
-                case T_PLAN: return renderPlan(ctx, snap, state);
-                case T_LIFE: return renderLife(ctx, snap, state);
+                case T_PLAN: return renderPlan(ctx, day, state);
+                case T_LIFE: return renderLife(ctx, day, state);
                 case T_WORDS: return renderWords(ctx, snap, state);
-                case T_SPELL: return renderSpell(ctx, snap, state);
-                case T_MATH: return renderMath(ctx, snap, state);
-                case T_MAJP: return renderMajorPoints(ctx, snap, state);
-                case T_MAJQ: return renderMajorQuiz(ctx, snap, state);
+                case T_SPELL: return renderSpell(ctx, day, state);
+                case T_MATH: return renderMath(ctx, day, state);
+                case T_MAJP: return renderMajorPoints(ctx, day, state);
+                case T_MAJQ: return renderMajorQuiz(ctx, day, state);
                 default: return empty(ctx, type, "未知组件");
             }
         } catch (Exception e) {
@@ -218,11 +277,11 @@ public final class WidgetRender {
         return o;
     }
 
-    static void setHeader(RemoteViews rv, String title, JSONObject snap) {
+    static void setHeader(RemoteViews rv, String title) {
         rv.setTextViewText(R.id.w_cat, CAT);
         rv.setTextViewText(R.id.w_title, title);
-        String date = snap != null ? snap.optString("date", "") : "";
-        rv.setTextViewText(R.id.w_date, date);
+        // 头部日期一律显示设备当前日期，确保跨 00:00 自动翻到新一天（不再依赖快照里冻结的 date 字段）
+        rv.setTextViewText(R.id.w_date, todayDevice());
         rv.setTextColor(R.id.w_title, C_TITLE);
         rv.setTextColor(R.id.w_date, C_MUTED);
     }
@@ -259,7 +318,7 @@ public final class WidgetRender {
      */
     static RemoteViews empty(Context ctx, String type, String msg) {
         RemoteViews rv = new RemoteViews(ctx.getPackageName(), layoutFor(type));
-        setHeader(rv, titleFor(type), null);
+        setHeader(rv, titleFor(type));
         rv.setViewVisibility(R.id.w_body, android.view.View.GONE);
         rv.setViewVisibility(R.id.w_empty, android.view.View.VISIBLE);
         rv.setTextViewText(R.id.w_empty, msg == null ? "" : msg);
@@ -278,10 +337,10 @@ public final class WidgetRender {
     // ============================================================
     //  1. 今日计划
     // ============================================================
-    static RemoteViews renderPlan(Context ctx, JSONObject snap, JSONObject state) {
+    static RemoteViews renderPlan(Context ctx, JSONObject day, JSONObject state) {
         RemoteViews rv = new RemoteViews(ctx.getPackageName(), R.layout.widget_plan);
-        setHeader(rv, "今日计划", snap);
-        JSONArray plan = snap != null ? snap.optJSONArray("plan") : null;
+        setHeader(rv, "今日计划");
+        JSONArray plan = day != null ? day.optJSONArray("plan") : null;
         if (plan == null || plan.length() == 0) {
             return empty(ctx, T_PLAN, "还没有今日计划\n点 🐱 进 App 添加并同步");
         }
@@ -308,10 +367,10 @@ public final class WidgetRender {
     // ============================================================
     //  2. 生活记录
     // ============================================================
-    static RemoteViews renderLife(Context ctx, JSONObject snap, JSONObject state) {
+    static RemoteViews renderLife(Context ctx, JSONObject day, JSONObject state) {
         RemoteViews rv = new RemoteViews(ctx.getPackageName(), R.layout.widget_life);
-        setHeader(rv, "生活记录", snap);
-        JSONObject life = snap != null ? snap.optJSONObject("life") : null;
+        setHeader(rv, "生活记录");
+        JSONObject life = day != null ? day.optJSONObject("life") : null;
         JSONObject meals = life != null ? life.optJSONObject("meals") : null;
         if (meals == null) meals = new JSONObject();
         int water = life != null ? life.optInt("water", 0) : 0;
@@ -356,7 +415,7 @@ public final class WidgetRender {
     // ============================================================
     static RemoteViews renderWords(Context ctx, JSONObject snap, JSONObject state) {
         RemoteViews rv = new RemoteViews(ctx.getPackageName(), R.layout.widget_words);
-        setHeader(rv, "背单词", snap);
+        setHeader(rv, "背单词");
         JSONObject words = snap != null ? snap.optJSONObject("words") : null;
         JSONArray pool = words != null ? words.optJSONArray("pool") : null;
         if (pool == null || pool.length() == 0) {
@@ -437,10 +496,10 @@ public final class WidgetRender {
     // ============================================================
     //  4. 随机拼写
     // ============================================================
-    static RemoteViews renderSpell(Context ctx, JSONObject snap, JSONObject state) {
+    static RemoteViews renderSpell(Context ctx, JSONObject day, JSONObject state) {
         RemoteViews rv = new RemoteViews(ctx.getPackageName(), R.layout.widget_spell);
-        setHeader(rv, "随机拼写", snap);
-        JSONArray pool = snap != null ? snap.optJSONArray("spellPool") : null;
+        setHeader(rv, "随机拼写");
+        JSONArray pool = day != null ? day.optJSONArray("spellPool") : null;
         if (pool == null || pool.length() == 0) {
             return empty(ctx, T_SPELL, "暂无单词数据\n点此打开 App 同步");
         }
@@ -483,10 +542,10 @@ public final class WidgetRender {
     // ============================================================
     //  5. 数学今日题
     // ============================================================
-    static RemoteViews renderMath(Context ctx, JSONObject snap, JSONObject state) {
+    static RemoteViews renderMath(Context ctx, JSONObject day, JSONObject state) {
         RemoteViews rv = new RemoteViews(ctx.getPackageName(), R.layout.widget_math);
-        setHeader(rv, "数学今日题", snap);
-        JSONArray math = snap != null ? snap.optJSONArray("math") : null;
+        setHeader(rv, "数学今日题");
+        JSONArray math = day != null ? day.optJSONArray("math") : null;
         if (math == null || math.length() == 0) {
             return empty(ctx, T_MATH, "暂无数学题数据\n点 🐱 进 App 同步");
         }
@@ -507,10 +566,10 @@ public final class WidgetRender {
     // ============================================================
     //  6. 专业课知识点
     // ============================================================
-    static RemoteViews renderMajorPoints(Context ctx, JSONObject snap, JSONObject state) {
+    static RemoteViews renderMajorPoints(Context ctx, JSONObject day, JSONObject state) {
         RemoteViews rv = new RemoteViews(ctx.getPackageName(), R.layout.widget_major_points);
-        setHeader(rv, "专业课知识点", snap);
-        JSONObject mp = snap != null ? snap.optJSONObject("majorPoints") : null;
+        setHeader(rv, "专业课知识点");
+        JSONObject mp = day != null ? day.optJSONObject("majorPoints") : null;
         JSONArray items = mp != null ? mp.optJSONArray("items") : null;
         int count = mp != null ? mp.optInt("count", 0) : 0;
         if (items == null || items.length() == 0) {
@@ -540,10 +599,10 @@ public final class WidgetRender {
     // ============================================================
     //  7. 专业课题目
     // ============================================================
-    static RemoteViews renderMajorQuiz(Context ctx, JSONObject snap, JSONObject state) {
+    static RemoteViews renderMajorQuiz(Context ctx, JSONObject day, JSONObject state) {
         RemoteViews rv = new RemoteViews(ctx.getPackageName(), R.layout.widget_major_quiz);
-        setHeader(rv, "专业课题目", snap);
-        JSONObject mq = snap != null ? snap.optJSONObject("majorQuiz") : null;
+        setHeader(rv, "专业课题目");
+        JSONObject mq = day != null ? day.optJSONObject("majorQuiz") : null;
         JSONArray qs = mq != null ? mq.optJSONArray("questions") : null;
         int total = qs != null ? qs.length() : 0;
         if (qs == null || total == 0) {

@@ -36,6 +36,7 @@ public class WidgetActionReceiver extends BroadcastReceiver {
             return;
         }
         if (ACTION_BOOT.equals(action)) {
+            WidgetRender.scheduleMidnight(ctx); // 开机后重建午夜翻页闹钟（设备重启会清空已排程的闹钟）
             WidgetRender.refreshAll(ctx);
             return;
         }

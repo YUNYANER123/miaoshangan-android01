@@ -156,6 +156,13 @@ if (fs.existsSync(mf)) {
         '<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n\n    <application'
       );
     }
+    // 午夜精确闹钟（setExactAndAllowWhileIdle）在 Android 12+ 需要该权限（正常权限，安装即授予，无需运行时申请）
+    if (!x.includes('SCHEDULE_EXACT_ALARM')) {
+      x = x.replace(
+        '<application',
+        '<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />\n\n    <application'
+      );
+    }
     const widgets = [
       ['PlanWidget', 'widget_plan', '今日计划'],
       ['LifeWidget', 'widget_life', '生活记录'],

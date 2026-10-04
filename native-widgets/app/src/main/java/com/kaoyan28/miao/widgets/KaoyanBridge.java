@@ -25,6 +25,9 @@ public class KaoyanBridge extends Plugin {
     public void pushSnapshot(PluginCall call) {
         String v = call.getString("value", null);
         if (v != null) Store.writeSnapshot(getContext(), v);
+        // 每次推送快照都顺手排程「午夜翻页」闹钟：保证只要 App 当天打开/保存过，
+        // 即使之后不再打开，跨 00:00 组件也能自动按设备当前日期重绘到新一天。
+        try { WidgetRender.scheduleMidnight(getContext()); } catch (Exception ignore) {}
         // 关键修复：Android 8+ 会静默丢弃「manifest 上注册的隐式广播」——
         // 旧实现用 sendBroadcast(ACTION_REFRESH)（只 setPackage、未 setClass）属于隐式广播，
         // 在绝大多数机型上根本到不了 WidgetActionReceiver，于是「保存 / 导入数据后桌面组件不刷新，

@@ -49,7 +49,9 @@ public class PlanListWidgetService extends RemoteViewsService {
             items.clear();
             try {
                 JSONObject snap = WidgetRender.parse(Store.readSnapshot(ctx));
-                JSONArray plan = snap.optJSONArray("plan");
+                // 按设备当前日期取「当天」计划（午夜翻页：跨 00:00 后 todayDevice() 变成新一天）
+                JSONObject day = WidgetRender.dayFor(snap, WidgetRender.todayDevice());
+                JSONArray plan = day.optJSONArray("plan");
                 if (plan == null) return;
                 for (int i = 0; i < plan.length(); i++) {
                     JSONObject it = plan.optJSONObject(i);
