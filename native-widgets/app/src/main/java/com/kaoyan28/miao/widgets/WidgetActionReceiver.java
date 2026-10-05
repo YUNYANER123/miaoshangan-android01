@@ -74,7 +74,7 @@ public class WidgetActionReceiver extends BroadcastReceiver {
                     handleMath(ctx, snap, state, act, extra);
                     break;
                 case WidgetRender.T_MAJP:
-                    handleMajorPoints(ctx, state, act, extra);
+                    handleMajorPoints(ctx, snap, state, act, extra);
                     break;
                 case WidgetRender.T_MAJQ:
                     handleMajorQuiz(ctx, snap, state, act, extra);
@@ -110,7 +110,11 @@ public class WidgetActionReceiver extends BroadcastReceiver {
         JSONObject e = ex(extra);
         String pid = e.optString("pid", "");
         if ("toggle".equals(act)) {
-            JSONArray plan = snap.optJSONArray("plan");
+            // v1.26 多天重构后组件读的是 days[td].plan；这里必须写同一处，否则重绘读不到、
+            // 要等 App 后台轮询 pullActions 把动作落到 store 重推快照才显示（表现为「点了没反应 / 延迟几秒」）。
+            JSONObject day = snap.has("days") ? snap.optJSONObject("days") : null;
+            JSONObject td = (day != null) ? day.optJSONObject(WidgetRender.todayDevice()) : null;
+            JSONArray plan = (td != null) ? td.optJSONArray("plan") : snap.optJSONArray("plan");
             if (plan != null) {
                 for (int i = 0; i < plan.length(); i++) {
                     JSONObject it = plan.optJSONObject(i);
@@ -128,8 +132,8 @@ public class WidgetActionReceiver extends BroadcastReceiver {
                                 JSONObject x = plan.optJSONObject(k);
                                 if (x != null && x.optBoolean("done", false)) sorted.put(x);
                             }
-                            snap.remove("plan");
-                            snap.put("plan", sorted);
+                            if (td != null) td.put("plan", sorted);
+                            else snap.put("plan", sorted);
                         } catch (JSONException ignore) {}
                         break;
                     }
@@ -144,7 +148,12 @@ public class WidgetActionReceiver extends BroadcastReceiver {
     // ---------- 2. life ----------
     static void handleLife(Context ctx, JSONObject snap, JSONObject state, String act, String extra) {
         JSONObject e = ex(extra);
-        JSONObject life = snap.has("life") ? snap.optJSONObject("life") : new JSONObject();
+        // v1.26 多天重构后组件读的是 days[td].life；这里必须写同一处，否则重绘读不到、
+        // 要等 App 后台轮询 pullActions 把动作落到 store 重推快照才显示（表现为「点了没反应 / 延迟几秒」）。
+        JSONObject day = snap.has("days") ? snap.optJSONObject("days") : null;
+        JSONObject td = (day != null) ? day.optJSONObject(WidgetRender.todayDevice()) : null;
+        JSONObject life = (td != null && td.has("life")) ? td.optJSONObject("life")
+                : (snap.has("life") ? snap.optJSONObject("life") : new JSONObject());
         try {
             if ("meal".equals(act)) {
                 JSONObject meals = life.has("meals") ? life.optJSONObject("meals") : new JSONObject();
@@ -166,7 +175,8 @@ public class WidgetActionReceiver extends BroadcastReceiver {
                 a.put("t", "lifeBowel"); a.put("val", v != 0);
                 queue(ctx, a);
             }
-            snap.put("life", life);
+            if (td != null) td.put("life", life);
+            else snap.put("life", life);
         } catch (JSONException ignore) {}
     }
 
@@ -322,18 +332,35 @@ public class WidgetActionReceiver extends BroadcastReceiver {
     }
 
     // ---------- 6. major points ----------
-    static void handleMajorPoints(Context ctx, JSONObject state, String act, String extra) {
+    static void handleMajorPoints(Context ctx, JSONObject snap, JSONObject state, String act, String extra) {
         try {
             if ("next".equals(act)) {
-                JSONObject snap = WidgetRender.parse(Store.readSnapshot(ctx));
-                JSONObject mp = snap.has("majorPoints") ? snap.optJSONObject("majorPoints") : null;
+                JSONObject s2 = WidgetRender.parse(Store.readSnapshot(ctx));
+                JSONObject mp = s2.has("majorPoints") ? s2.optJSONObject("majorPoints") : null;
                 JSONArray items = mp != null ? mp.optJSONArray("items") : null;
                 int n = (items != null) ? items.length() : 1;
                 int idx = (state.optInt("majPi", 0) + 1) % n;
                 state.put("majPi", idx);
             } else if ("fav".equals(act)) {
+                String id = ex(extra).optString("id", "");
+                // 乐观更新：直接翻转快照里该知识点的 fav，组件立即显示★/☆，无需等 App 回推。
+                JSONObject day = snap.has("days") ? snap.optJSONObject("days") : null;
+                JSONObject td = (day != null) ? day.optJSONObject(WidgetRender.todayDevice()) : null;
+                JSONObject mp = (td != null && td.has("majorPoints")) ? td.optJSONObject("majorPoints")
+                        : (snap.has("majorPoints") ? snap.optJSONObject("majorPoints") : null);
+                JSONArray items = (mp != null) ? mp.optJSONArray("items") : null;
+                if (items != null) {
+                    for (int i = 0; i < items.length(); i++) {
+                        JSONObject it = items.optJSONObject(i);
+                        if (it != null && id.equals(it.optString("id", ""))) {
+                            boolean fav = !it.optBoolean("fav", false);
+                            try { it.put("fav", fav); } catch (JSONException ignore) {}
+                            break;
+                        }
+                    }
+                }
                 JSONObject a = new JSONObject();
-                a.put("t", "majFavPoint"); a.put("id", ex(extra).optString("id", ""));
+                a.put("t", "majFavPoint"); a.put("id", id);
                 queue(ctx, a);
             }
         } catch (JSONException ignore) {}
@@ -358,8 +385,26 @@ public class WidgetActionReceiver extends BroadcastReceiver {
                 }
             } else if ("fav".equals(act)) {
                 JSONObject e = ex(extra);
+                String id = e.optString("id", "");
+                String ftype = e.optString("type", "");
+                // 乐观更新：直接翻转快照里该题目的 fav，组件立即显示★/☆，无需等 App 回推。
+                JSONObject day = snap.has("days") ? snap.optJSONObject("days") : null;
+                JSONObject td = (day != null) ? day.optJSONObject(WidgetRender.todayDevice()) : null;
+                JSONObject mq = (td != null && td.has("majorQuiz")) ? td.optJSONObject("majorQuiz")
+                        : (snap.has("majorQuiz") ? snap.optJSONObject("majorQuiz") : null);
+                JSONArray qs = (mq != null) ? mq.optJSONArray("questions") : null;
+                if (qs != null) {
+                    for (int i = 0; i < qs.length(); i++) {
+                        JSONObject q = qs.optJSONObject(i);
+                        if (q != null && id.equals(q.optString("id", ""))) {
+                            boolean fav = !q.optBoolean("fav", false);
+                            try { q.put("fav", fav); } catch (JSONException ignore) {}
+                            break;
+                        }
+                    }
+                }
                 JSONObject a = new JSONObject();
-                a.put("t", "majFav"); a.put("type", e.optString("type", "")); a.put("id", e.optString("id", ""));
+                a.put("t", "majFav"); a.put("type", ftype); a.put("id", id);
                 queue(ctx, a);
             } else if ("next".equals(act)) {
                 JSONArray qs = snap.has("majorQuiz") ? snap.optJSONObject("majorQuiz").optJSONArray("questions") : null;
