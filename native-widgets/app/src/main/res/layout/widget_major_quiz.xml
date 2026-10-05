@@ -87,7 +87,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal">
-            <Button android:id="@+id/mq_fav" style="@style/WidgetBtn" android:text="★ 收藏" />
+            <Button android:id="@+id/mq_prev" style="@style/WidgetBtn" android:text="上一题" />
+            <Button android:id="@+id/mq_fav" style="@style/WidgetBtn" android:text="⭐ 收藏" />
             <Button android:id="@+id/mq_next" style="@style/WidgetBtn" android:text="下一题 →" />
         </LinearLayout>
     </LinearLayout>

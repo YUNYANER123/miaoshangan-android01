@@ -321,6 +321,14 @@ public class WidgetActionReceiver extends BroadcastReceiver {
                 state.put("mathRevealed", false);
                 state.put("mathAnswered", false);
                 state.put("mathSel", -1);
+            } else if ("prev".equals(act)) {
+                JSONArray m = snap.has("math") ? snap.optJSONArray("math") : null;
+                int n = (m != null && m.length() > 0) ? m.length() : 1;
+                int idx = (state.optInt("mathQi", 0) - 1 + n) % n;
+                state.put("mathQi", idx);
+                state.put("mathRevealed", false);
+                state.put("mathAnswered", false);
+                state.put("mathSel", -1);
             } else if ("ok".equals(act) || "wrong".equals(act)) {
                 JSONObject q = ex(extra);
                 JSONObject a = new JSONObject();
@@ -410,6 +418,13 @@ public class WidgetActionReceiver extends BroadcastReceiver {
                 JSONArray qs = snap.has("majorQuiz") ? snap.optJSONObject("majorQuiz").optJSONArray("questions") : null;
                 int n = (qs != null) ? qs.length() : 1;
                 int idx = (state.optInt("majQi", 0) + 1) % n;
+                state.put("majQi", idx);
+                state.put("majAnswered", false);
+                state.put("majSel", -1);
+            } else if ("prev".equals(act)) {
+                JSONArray qs = snap.has("majorQuiz") ? snap.optJSONObject("majorQuiz").optJSONArray("questions") : null;
+                int n = (qs != null) ? qs.length() : 1;
+                int idx = (state.optInt("majQi", 0) - 1 + n) % n;
                 state.put("majQi", idx);
                 state.put("majAnswered", false);
                 state.put("majSel", -1);

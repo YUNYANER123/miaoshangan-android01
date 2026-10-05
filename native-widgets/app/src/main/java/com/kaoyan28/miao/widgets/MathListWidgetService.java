@@ -67,6 +67,12 @@ public class MathListWidgetService extends RemoteViewsService {
         return i;
     }
 
+    static Intent fillPrev() {
+        Intent i = new Intent();
+        i.putExtra("extra", "{\"act\":\"prev\"}");
+        return i;
+    }
+
     static class MathFactory implements RemoteViewsService.RemoteViewsFactory {
         private final Context ctx;
         private final List<int[]> rows = new ArrayList<>();
@@ -146,6 +152,7 @@ public class MathListWidgetService extends RemoteViewsService {
                 r.setViewVisibility(R.id.mr_b, android.view.View.GONE);
                 r.setViewVisibility(R.id.mr_ans, android.view.View.GONE);
                 r.setViewVisibility(R.id.mr_next, android.view.View.GONE);
+                r.setViewVisibility(R.id.mr_prev, android.view.View.GONE);
                 switch (spec[0]) {
                     case ROW_HEAD: {
                         r.setViewVisibility(R.id.mr_counter, android.view.View.VISIBLE);
@@ -203,8 +210,14 @@ public class MathListWidgetService extends RemoteViewsService {
                         break;
                     }
                     case ROW_NEXT: {
+                        // 「跳过此题」拆成并列的「上一题 / 下一题」两个按钮
+                        r.setViewVisibility(R.id.mr_prev, android.view.View.VISIBLE);
+                        r.setTextViewText(R.id.mr_prev, "上一题");
+                        r.setTextColor(R.id.mr_prev, WidgetRender.C_WHITE);
+                        r.setInt(R.id.mr_prev, "setBackgroundColor", 0xFF6B8299);
+                        r.setOnClickFillInIntent(R.id.mr_prev, fillPrev());
                         r.setViewVisibility(R.id.mr_next, android.view.View.VISIBLE);
-                        r.setTextViewText(R.id.mr_next, answered ? "下一题 →" : "跳过此题 →");
+                        r.setTextViewText(R.id.mr_next, "下一题 →");
                         r.setTextColor(R.id.mr_next, WidgetRender.C_WHITE);
                         r.setInt(R.id.mr_next, "setBackgroundColor", 0xFF2F80ED);
                         r.setOnClickFillInIntent(R.id.mr_next, fillNext());

@@ -54,4 +54,10 @@
         style="@style/WidgetOpt"
         android:text="下一题 →"
         android:visibility="gone" />
+
+    <Button
+        android:id="@+id/mr_prev"
+        style="@style/WidgetOpt"
+        android:text="上一题"
+        android:visibility="gone" />
 </LinearLayout>
