@@ -180,8 +180,8 @@ public class MathListWidgetService extends RemoteViewsService {
                         r.setViewVisibility(R.id.mr_b, android.view.View.VISIBLE);
                         r.setTextViewText(R.id.mr_b, "ABCD".charAt(j) + ". " + txt);
                         if (!answered) {
-                            r.setTextColor(R.id.mr_b, WidgetRender.C_WHITE);
-                            r.setInt(R.id.mr_b, "setBackgroundColor", 0xFF2F80ED);
+                            r.setTextColor(R.id.mr_b, WidgetRender.C_BODY);
+                            r.setInt(R.id.mr_b, "setBackgroundColor", 0xFFD6E6FF);
                             r.setOnClickFillInIntent(R.id.mr_b, fillPick(j));
                         } else if (j == correct) {
                             r.setTextColor(R.id.mr_b, WidgetRender.C_WHITE);
@@ -212,12 +212,12 @@ public class MathListWidgetService extends RemoteViewsService {
                     case ROW_NEXT: {
                         // 「跳过此题」拆成并列的「上一题 / 下一题」两个按钮
                         r.setViewVisibility(R.id.mr_prev, android.view.View.VISIBLE);
-                        r.setTextViewText(R.id.mr_prev, "上一题");
+                        r.setTextViewText(R.id.mr_prev, "←上一题");
                         r.setTextColor(R.id.mr_prev, WidgetRender.C_WHITE);
-                        r.setInt(R.id.mr_prev, "setBackgroundColor", 0xFF6B8299);
+                        r.setInt(R.id.mr_prev, "setBackgroundColor", 0xFF2F80ED);
                         r.setOnClickFillInIntent(R.id.mr_prev, fillPrev());
                         r.setViewVisibility(R.id.mr_next, android.view.View.VISIBLE);
-                        r.setTextViewText(R.id.mr_next, "下一题 →");
+                        r.setTextViewText(R.id.mr_next, "→下一题");
                         r.setTextColor(R.id.mr_next, WidgetRender.C_WHITE);
                         r.setInt(R.id.mr_next, "setBackgroundColor", 0xFF2F80ED);
                         r.setOnClickFillInIntent(R.id.mr_next, fillNext());

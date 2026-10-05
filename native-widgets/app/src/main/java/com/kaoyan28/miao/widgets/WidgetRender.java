@@ -589,7 +589,7 @@ public final class WidgetRender {
         // 收藏状态：快照 items[].fav 由 App 权威写入，原生乐观翻转即时反馈；文案改「⭐收藏 / √已收藏」更易辨识
         boolean mpFav = it.optBoolean("fav", false);
         rv.setTextViewText(R.id.mp_fav, mpFav ? "√已收藏" : "⭐收藏");
-        rv.setTextColor(R.id.mp_fav, mpFav ? 0xFF2E9E5B : C_MUTED);
+        rv.setTextColor(R.id.mp_fav, C_WHITE);
         rv.setOnClickPendingIntent(R.id.mp_next, pi(ctx, T_MAJP, "next", null, 1));
         JSONObject ex = new JSONObject();
         try { ex.put("id", it.optString("id", "")); } catch (JSONException ignore) {}
@@ -625,7 +625,7 @@ public final class WidgetRender {
         // 收藏状态：快照 questions[].fav 由 App 权威写入，原生乐观翻转即时反馈；文案改「⭐收藏 / √已收藏」更易辨识
         boolean mqFav = q.optBoolean("fav", false);
         rv.setTextViewText(R.id.mq_fav, mqFav ? "√已收藏" : "⭐收藏");
-        rv.setTextColor(R.id.mq_fav, mqFav ? 0xFF2E9E5B : C_MUTED);
+        rv.setTextColor(R.id.mq_fav, C_WHITE);
 
         if ("choice".equals(type)) {
             JSONArray opts = q.optJSONArray("options");
@@ -681,7 +681,7 @@ public final class WidgetRender {
         rv.setOnClickPendingIntent(R.id.mq_fav, pi(ctx, T_MAJQ, "fav", exF.toString(), 30));
         rv.setOnClickPendingIntent(R.id.mq_next, pi(ctx, T_MAJQ, "next", null, 31));
         rv.setTextViewText(R.id.mq_prev, "上一题");
-        rv.setTextColor(R.id.mq_prev, C_MUTED);
+        rv.setTextColor(R.id.mq_prev, C_WHITE);
         rv.setOnClickPendingIntent(R.id.mq_prev, pi(ctx, T_MAJQ, "prev", null, 33));
         rv.setTextViewText(R.id.w_tip, "点 🐱 进 App · 点 ⭐ 同步收藏");
         rv.setTextColor(R.id.w_tip, C_MUTED);

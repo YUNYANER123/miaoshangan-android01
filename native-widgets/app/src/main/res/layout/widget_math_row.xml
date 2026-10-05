@@ -49,15 +49,31 @@
         android:textColor="#27496B"
         android:visibility="gone" />
 
-    <Button
-        android:id="@+id/mr_next"
-        style="@style/WidgetOpt"
-        android:text="下一题 →"
-        android:visibility="gone" />
+    <!-- 上一题 / 下一题：同一行（横向），上一题在左、下一题在右；
+         外层 LinearLayout 默认可见、子按钮默认 gone，由 ROW_NEXT 在 Java 里 setViewVisibility(VISIBLE) 点亮，
+         其它行（题干/选项/解析）因子按钮 gone 而高度塌缩为 0，不占空间。 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:weightSum="2">
 
-    <Button
-        android:id="@+id/mr_prev"
-        style="@style/WidgetOpt"
-        android:text="上一题"
-        android:visibility="gone" />
+        <Button
+            android:id="@+id/mr_prev"
+            style="@style/WidgetOpt"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="←上一题"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/mr_next"
+            style="@style/WidgetOpt"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="→下一题"
+            android:visibility="gone" />
+    </LinearLayout>
 </LinearLayout>
