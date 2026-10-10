@@ -680,7 +680,7 @@ public final class WidgetRender {
         try { exF.put("type", type); exF.put("id", q.optString("id", "")); } catch (JSONException ignore) {}
         rv.setOnClickPendingIntent(R.id.mq_fav, pi(ctx, T_MAJQ, "fav", exF.toString(), 30));
         rv.setOnClickPendingIntent(R.id.mq_next, pi(ctx, T_MAJQ, "next", null, 31));
-        rv.setTextViewText(R.id.mq_prev, "上一题");
+        rv.setTextViewText(R.id.mq_prev, "←上一题");
         rv.setTextColor(R.id.mq_prev, C_WHITE);
         rv.setOnClickPendingIntent(R.id.mq_prev, pi(ctx, T_MAJQ, "prev", null, 33));
         rv.setTextViewText(R.id.w_tip, "点 🐱 进 App · 点 ⭐ 同步收藏");

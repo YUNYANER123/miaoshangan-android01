@@ -217,7 +217,7 @@ public class MathListWidgetService extends RemoteViewsService {
                         r.setInt(R.id.mr_prev, "setBackgroundColor", 0xFF2F80ED);
                         r.setOnClickFillInIntent(R.id.mr_prev, fillPrev());
                         r.setViewVisibility(R.id.mr_next, android.view.View.VISIBLE);
-                        r.setTextViewText(R.id.mr_next, "→下一题");
+                        r.setTextViewText(R.id.mr_next, "下一题→");
                         r.setTextColor(R.id.mr_next, WidgetRender.C_WHITE);
                         r.setInt(R.id.mr_next, "setBackgroundColor", 0xFF2F80ED);
                         r.setOnClickFillInIntent(R.id.mr_next, fillNext());
