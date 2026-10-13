@@ -156,13 +156,6 @@ if (fs.existsSync(mf)) {
         '<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n\n    <application'
       );
     }
-    // 午夜精确闹钟（setExactAndAllowWhileIdle）在 Android 12+ 需要该权限（正常权限，安装即授予，无需运行时申请）
-    if (!x.includes('SCHEDULE_EXACT_ALARM')) {
-      x = x.replace(
-        '<application',
-        '<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />\n\n    <application'
-      );
-    }
     const widgets = [
       ['PlanWidget', 'widget_plan', '今日计划'],
       ['LifeWidget', 'widget_life', '生活记录'],
@@ -220,6 +213,35 @@ if (fs.existsSync(mf)) {
   }
 } else {
   log('WARN: AndroidManifest.xml not found at ' + mf);
+}
+
+// ---- 3c: 硬件返回键页面内返回 ----
+// 覆盖 onBackPressed：优先交给网页 window.__onHwBack() 处理（关弹窗 / 返回上一页），
+// 仅当网页返回 'exit'（已在根页面且无弹窗）时才真正 finish，避免一按返回就退到桌面。
+if (fs.existsSync(mainAct)) {
+  let m = fs.readFileSync(mainAct, 'utf8');
+  if (!m.includes('onBackPressed')) {
+    const backMethod =
+      '\n' +
+      '    @Override\n' +
+      '    public void onBackPressed() {\n' +
+      '        android.webkit.WebView wv = (getBridge() != null) ? getBridge().getWebView() : null;\n' +
+      '        if (wv != null) {\n' +
+      '            wv.evaluateJavascript("window.__onHwBack ? window.__onHwBack() : \\"exit\\"", value -> {\n' +
+      '                if (value == null || value.contains("exit")) { MainActivity.this.realBack(); }\n' +
+      '            });\n' +
+      '        } else {\n' +
+      '            super.onBackPressed();\n' +
+      '        }\n' +
+      '    }\n' +
+      '    public void realBack() { super.onBackPressed(); }\n';
+    const ci = m.lastIndexOf('}');
+    m = m.slice(0, ci) + backMethod + m.slice(ci);
+    fs.writeFileSync(mainAct, m);
+    log('patched MainActivity.java (硬件返回键 → JS window.__onHwBack)');
+  } else {
+    log('MainActivity.java already patched for onBackPressed');
+  }
 }
 
 log('done.');
