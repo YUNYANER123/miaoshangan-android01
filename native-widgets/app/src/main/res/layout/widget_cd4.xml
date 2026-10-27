@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 倒数日（4 个）：4×3 组件。头部 + 四行（行由 WidgetRender 动态 addView 进 w_body）。 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_bg"
+    android:padding="6dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+        <TextView
+            android:id="@+id/w_cat"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🐱"
+            android:textSize="14sp"
+            android:clickable="true"
+            android:focusable="true" />
+        <TextView
+            android:id="@+id/w_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="倒数日"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#1E3A5F"
+            android:clickable="true"
+            android:focusable="true"
+            android:paddingStart="5dp" />
+        <TextView
+            android:id="@+id/w_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="9sp"
+            android:textColor="#6B8299" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/w_body"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center_vertical" />
+
+    <TextView
+        android:id="@+id/w_empty"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:text=""
+        android:textSize="12sp"
+        android:textColor="#6B8299"
+        android:visibility="gone" />
+</LinearLayout>

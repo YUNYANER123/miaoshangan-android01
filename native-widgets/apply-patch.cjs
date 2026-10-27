@@ -9,7 +9,7 @@
  *   1. copy Java sources  -> android/app/src/main/java/...
  *   2. copy res (drawable/layout/values/xml) -> android/app/src/main/res/...
  *   3. register the KaoyanBridge plugin in MainActivity
- *   4. declare the 7 AppWidgetProviders + the interaction receiver in the manifest
+ *   4. declare the 10 AppWidgetProviders + the interaction receiver in the manifest
  *
  * Idempotent: safe to run more than once.
  */
@@ -164,6 +164,10 @@ if (fs.existsSync(mf)) {
       ['MathWidget', 'widget_math', '数学今日题'],
       ['MajorPointsWidget', 'widget_major_points', '专业课知识点'],
       ['MajorQuizWidget', 'widget_major_quiz', '专业课题目'],
+      // v1.53m③：倒数日组件（1 个 2×2 / 2 个 4×2 / 4 个 4×3）
+      ['Countdown1Widget', 'widget_cd1', '倒数日（1 个）'],
+      ['Countdown2Widget', 'widget_cd2', '倒数日（2 个）'],
+      ['Countdown4Widget', 'widget_cd4', '倒数日（4 个）'],
     ];
     let block = '\n        <!-- 喵上岸 桌面小组件 -->\n';
     block +=

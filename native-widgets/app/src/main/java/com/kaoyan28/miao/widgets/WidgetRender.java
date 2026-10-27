@@ -34,6 +34,10 @@ public final class WidgetRender {
     public static final String T_MATH = "math";
     public static final String T_MAJP = "majorPoints";
     public static final String T_MAJQ = "majorQuiz";
+    // v1.53m③：倒数日组件（分别显示 1 / 2 / 4 个倒数日，2×2 / 4×2 / 4×3）
+    public static final String T_CD1 = "cd1";
+    public static final String T_CD2 = "cd2";
+    public static final String T_CD4 = "cd4";
 
     // ---- 各组件点 🐱 后跳转到的 App 页面（与网页 index.html 的 data-page 一致）----
     public static final String PAGE_PLAN = "plan";
@@ -64,6 +68,9 @@ public final class WidgetRender {
         refreshOne(ctx, T_MATH);
         refreshOne(ctx, T_MAJP);
         refreshOne(ctx, T_MAJQ);
+        refreshOne(ctx, T_CD1);
+        refreshOne(ctx, T_CD2);
+        refreshOne(ctx, T_CD4);
     }
 
     public static void refreshOne(Context ctx, String type) {
@@ -113,6 +120,7 @@ public final class WidgetRender {
                 if (snap.has("math")) f.put("math", snap.optJSONArray("math"));
                 if (snap.has("majorPoints")) f.put("majorPoints", snap.optJSONObject("majorPoints"));
                 if (snap.has("majorQuiz")) f.put("majorQuiz", snap.optJSONObject("majorQuiz"));
+                if (snap.has("cdWidgets")) f.put("cdWidgets", snap.optJSONObject("cdWidgets"));
             }
         } catch (JSONException ignore) {}
         return f;
@@ -149,6 +157,9 @@ public final class WidgetRender {
             case T_MATH: return MathWidget.class;
             case T_MAJP: return MajorPointsWidget.class;
             case T_MAJQ: return MajorQuizWidget.class;
+            case T_CD1: return Countdown1Widget.class;
+            case T_CD2: return Countdown2Widget.class;
+            case T_CD4: return Countdown4Widget.class;
             default: return PlanWidget.class;
         }
     }
@@ -170,6 +181,9 @@ public final class WidgetRender {
                 case T_MATH: return renderMath(ctx, day, state);
                 case T_MAJP: return renderMajorPoints(ctx, day, state);
                 case T_MAJQ: return renderMajorQuiz(ctx, day, state);
+                case T_CD1: return renderCountdown(ctx, snap, day, 1);
+                case T_CD2: return renderCountdown(ctx, snap, day, 2);
+                case T_CD4: return renderCountdown(ctx, snap, day, 4);
                 default: return empty(ctx, type, "未知组件");
             }
         } catch (Exception e) {
@@ -244,6 +258,9 @@ public final class WidgetRender {
             case T_MATH: return PAGE_MATH;
             case T_MAJP: return PAGE_MAJOR;
             case T_MAJQ: return PAGE_MAJOR;
+            case T_CD1: return PAGE_PLAN;
+            case T_CD2: return PAGE_PLAN;
+            case T_CD4: return PAGE_PLAN;
             default: return PAGE_PLAN;
         }
     }
@@ -295,6 +312,9 @@ public final class WidgetRender {
             case T_MATH: return R.layout.widget_math;
             case T_MAJP: return R.layout.widget_major_points;
             case T_MAJQ: return R.layout.widget_major_quiz;
+            case T_CD1: return R.layout.widget_cd1;
+            case T_CD2: return R.layout.widget_cd2;
+            case T_CD4: return R.layout.widget_cd4;
             default: return R.layout.widget_plan;
         }
     }
@@ -308,6 +328,9 @@ public final class WidgetRender {
             case T_MATH: return "数学今日题";
             case T_MAJP: return "专业课知识点";
             case T_MAJQ: return "专业课题目";
+            case T_CD1: return "倒数日";
+            case T_CD2: return "倒数日";
+            case T_CD4: return "倒数日";
             default: return "今日计划";
         }
     }
@@ -597,6 +620,71 @@ public final class WidgetRender {
         rv.setTextViewText(R.id.w_tip, "点 🐱 进 App · 点 ★ 同步收藏");
         rv.setTextColor(R.id.w_tip, C_MUTED);
         rv.setOnClickPendingIntent(R.id.w_cat, openApp(ctx, PAGE_MAJOR));
+        return rv;
+    }
+
+    // ============================================================
+    //  v1.53m③ 倒数日组件（1 / 2 / 4 个）
+    // ============================================================
+    /**
+     * 倒数日组件。数据来自快照 day.cdWidgets.cd1 / cd2 / cd4（网页端按用户选择算好，
+     * 天数已按该组件对应日期算过），原生端只负责排版。
+     */
+    static RemoteViews renderCountdown(Context ctx, JSONObject snap, JSONObject day, int n) {
+        String type = (n == 1) ? T_CD1 : (n == 2) ? T_CD2 : T_CD4;
+        RemoteViews rv = new RemoteViews(ctx.getPackageName(), layoutFor(type));
+        setHeader(rv, titleFor(type));
+        JSONObject cw = (day != null) ? day.optJSONObject("cdWidgets") : null;
+        if (cw == null && snap != null) cw = snap.optJSONObject("cdWidgets");
+        JSONArray arr = null;
+        if (cw != null) {
+            JSONArray a = cw.optJSONArray((n == 1) ? "cd1" : (n == 2) ? "cd2" : "cd4");
+            if (a != null && a.length() > 0) arr = a;
+        }
+        if (arr == null || arr.length() == 0) {
+            return empty(ctx, type, "还没有倒数日\n点 🐱 进 App 添加");
+        }
+        rv.setViewVisibility(R.id.w_empty, android.view.View.GONE);
+        rv.setViewVisibility(R.id.w_body, android.view.View.VISIBLE);
+        PendingIntent go = openApp(ctx, pageForType(type));
+        if (n == 1) {
+            JSONObject it = arr.optJSONObject(0);
+            if (it == null) it = new JSONObject();
+            // 2×2 空间有限：标题行直接放事件名，中间放大号天数，底部放日期
+            rv.setTextViewText(R.id.w_title, it.optString("name", ""));
+            rv.setTextViewText(R.id.cd_icon, it.optString("icon", "\u23F3"));
+            rv.setTextViewText(R.id.cd_dnum, it.optString("dnum", "\u2014"));
+            rv.setTextViewText(R.id.cd_dunit, it.optString("dunit", ""));
+            rv.setTextViewText(R.id.cd_name, it.optString("sub", ""));
+            rv.setTextColor(R.id.w_title, C_TITLE);
+            rv.setTextColor(R.id.cd_dnum, C_ACCENT);
+            rv.setTextColor(R.id.cd_dunit, C_MUTED);
+            rv.setTextColor(R.id.cd_name, C_MUTED);
+            if (it.has("bg")) rv.setInt(R.id.w_body, "setBackgroundColor", (int) it.optLong("bg", 0xFFFFFFFFL));
+        } else {
+            // 2 / 4 个：逐行 addView（集合视图之外的多行做法；RemoteViews.addView 自 API 11 起支持）
+            try { rv.removeAllViews(R.id.w_body); } catch (Exception ignore) {}
+            for (int i = 0; i < arr.length() && i < n; i++) {
+                JSONObject it = arr.optJSONObject(i);
+                if (it == null) continue;
+                RemoteViews row = new RemoteViews(ctx.getPackageName(), R.layout.widget_cd_row);
+                row.setTextViewText(R.id.cd_icon, it.optString("icon", "\u23F3"));
+                row.setTextViewText(R.id.cd_name, it.optString("name", ""));
+                row.setTextViewText(R.id.cd_sub, it.optString("sub", ""));
+                row.setTextViewText(R.id.cd_dnum, it.optString("dnum", "\u2014"));
+                row.setTextViewText(R.id.cd_dunit, it.optString("dunit", ""));
+                row.setTextColor(R.id.cd_name, C_TITLE);
+                row.setTextColor(R.id.cd_sub, C_MUTED);
+                row.setTextColor(R.id.cd_dnum, C_ACCENT);
+                row.setTextColor(R.id.cd_dunit, C_MUTED);
+                if (it.has("bg")) row.setInt(R.id.cd_row_root, "setBackgroundColor", (int) it.optLong("bg", 0xFFFFFFFFL));
+                row.setOnClickPendingIntent(R.id.cd_row_root, go);
+                try { rv.addView(R.id.w_body, row); } catch (Exception ignore) {}
+            }
+            rv.setOnClickPendingIntent(R.id.w_body, go);
+        }
+        rv.setOnClickPendingIntent(R.id.w_cat, go);
+        try { rv.setOnClickPendingIntent(R.id.w_title, go); } catch (Exception ignore) {}
         return rv;
     }
 
