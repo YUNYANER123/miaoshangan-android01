@@ -630,6 +630,17 @@ public final class WidgetRender {
      * 倒数日组件。数据来自快照 day.cdWidgets.cd1 / cd2 / cd4（网页端按用户选择算好，
      * 天数已按该组件对应日期算过），原生端只负责排版。
      */
+    // v1.53n：倒数日四类底色 → 圆角 drawable。RemoteViews 直接 setBackgroundColor 会把内部块画成
+    // 直角纯色块、盖住外层 widget_bg 的圆角；改用 setBackgroundResource(圆角 shape) 才能让四角真正变圆。
+    static int cdBgRes(long bg) {
+        if (bg == 0xFFECF5FDL) return R.drawable.cd_bg_blue;   // 生日·男 浅蓝
+        if (bg == 0xFFFDF0F3L) return R.drawable.cd_bg_pink;   // 生日·女 浅粉
+        if (bg == 0xFFF5F5F5L) return R.drawable.cd_bg_gray;   // 生日·未设 浅灰
+        if (bg == 0xFFFFF3E8L) return R.drawable.cd_bg_orange; // 纪念日 浅橙
+        if (bg == 0xFFF5F0FCL) return R.drawable.cd_bg_purple; // 节日 浅紫
+        return R.drawable.cd_bg_green;                          // 倒数日 浅绿 + 兜底
+    }
+
     static RemoteViews renderCountdown(Context ctx, JSONObject snap, JSONObject day, int n) {
         String type = (n == 1) ? T_CD1 : (n == 2) ? T_CD2 : T_CD4;
         RemoteViews rv = new RemoteViews(ctx.getPackageName(), layoutFor(type));
@@ -650,17 +661,17 @@ public final class WidgetRender {
         if (n == 1) {
             JSONObject it = arr.optJSONObject(0);
             if (it == null) it = new JSONObject();
-            // 2×2 空间有限：标题行直接放事件名，中间放大号天数，底部放日期
-            rv.setTextViewText(R.id.w_title, it.optString("name", ""));
+            // v1.53n：🐱 后面的标题固定「倒数日」（setHeader 已设，不再覆盖为事件名）；具体名称移到组件内部
             rv.setTextViewText(R.id.cd_icon, it.optString("icon", "\u23F3"));
             rv.setTextViewText(R.id.cd_dnum, it.optString("dnum", "\u2014"));
             rv.setTextViewText(R.id.cd_dunit, it.optString("dunit", ""));
-            rv.setTextViewText(R.id.cd_name, it.optString("sub", ""));
+            rv.setTextViewText(R.id.cd_name, it.optString("name", ""));
             rv.setTextColor(R.id.w_title, C_TITLE);
             rv.setTextColor(R.id.cd_dnum, C_ACCENT);
             rv.setTextColor(R.id.cd_dunit, C_MUTED);
-            rv.setTextColor(R.id.cd_name, C_MUTED);
-            if (it.has("bg")) rv.setInt(R.id.w_body, "setBackgroundColor", (int) it.optLong("bg", 0xFFFFFFFFL));
+            rv.setTextColor(R.id.cd_name, C_TITLE);
+            // 圆角底色：圆角 drawable 替代 setBackgroundColor 直角块
+            rv.setInt(R.id.w_body, "setBackgroundResource", cdBgRes(it.optLong("bg", 0xFFEAF5EDL)));
         } else {
             // 2 / 4 个：逐行 addView（集合视图之外的多行做法；RemoteViews.addView 自 API 11 起支持）
             try { rv.removeAllViews(R.id.w_body); } catch (Exception ignore) {}
@@ -677,7 +688,8 @@ public final class WidgetRender {
                 row.setTextColor(R.id.cd_sub, C_MUTED);
                 row.setTextColor(R.id.cd_dnum, C_ACCENT);
                 row.setTextColor(R.id.cd_dunit, C_MUTED);
-                if (it.has("bg")) row.setInt(R.id.cd_row_root, "setBackgroundColor", (int) it.optLong("bg", 0xFFFFFFFFL));
+                // v1.53n：每行独立圆角底色（四类），替代 setBackgroundColor 直角块
+                row.setInt(R.id.cd_row_root, "setBackgroundResource", cdBgRes(it.optLong("bg", 0xFFEAF5EDL)));
                 row.setOnClickPendingIntent(R.id.cd_row_root, go);
                 try { rv.addView(R.id.w_body, row); } catch (Exception ignore) {}
             }

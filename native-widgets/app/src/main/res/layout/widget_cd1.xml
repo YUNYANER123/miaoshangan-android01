@@ -90,8 +90,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text=""
-            android:textSize="9sp"
-            android:textColor="#6B8299"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#1E3A5F"
             android:gravity="center"
             android:singleLine="true"
             android:ellipsize="end" />
