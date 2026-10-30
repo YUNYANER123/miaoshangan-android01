@@ -82,4 +82,44 @@ public class KaoyanBridge extends Plugin {
         r.put("page", p == null ? "" : p);
         call.resolve(r);
     }
+
+    // v1.53p：把网页 Canvas 生成的计划图片存进系统相册。
+    // Android 10+ 走 MediaStore + RELATIVE_PATH(Pictures/MiaoShangAn)，无需任何运行时权限；
+    // Android 9 及以下回退到传统 MediaStore 插入（配合 manifest 里 maxSdkVersion=28 的写外部存储权限）。
+    @PluginMethod()
+    public void saveImage(PluginCall call) {
+        String b64 = call.getString("base64", "");
+        String name = call.getString("filename", "miaoshanggan.jpg");
+        if (b64 == null || b64.length() == 0) { call.reject("empty image"); return; }
+        try {
+            byte[] data = android.util.Base64.decode(b64, android.util.Base64.DEFAULT);
+            android.content.ContentResolver cr = getContext().getContentResolver();
+            android.content.ContentValues cv = new android.content.ContentValues();
+            cv.put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name);
+            cv.put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "image/jpeg");
+            if (android.os.Build.VERSION.SDK_INT >= 29) {
+                cv.put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH,
+                        android.os.Environment.DIRECTORY_PICTURES + "/MiaoShangAn");
+                cv.put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1);
+            }
+            android.net.Uri uri = cr.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, cv);
+            if (uri == null) { call.reject("insert failed"); return; }
+            java.io.OutputStream os = cr.openOutputStream(uri);
+            if (os == null) { call.reject("open stream failed"); return; }
+            os.write(data);
+            os.flush();
+            os.close();
+            if (android.os.Build.VERSION.SDK_INT >= 29) {
+                cv.clear();
+                cv.put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0);
+                cr.update(uri, cv, null, null);
+            }
+            JSObject r = new JSObject();
+            r.put("ok", true);
+            r.put("uri", uri.toString());
+            call.resolve(r);
+        } catch (Exception e) {
+            call.reject("save failed: " + e.getMessage());
+        }
+    }
 }

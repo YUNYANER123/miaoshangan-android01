@@ -149,6 +149,14 @@ if (fs.existsSync(mainAct)) {
 const mf = path.join(ANDROID, 'app', 'src', 'main', 'AndroidManifest.xml');
 if (fs.existsSync(mf)) {
   let x = fs.readFileSync(mf, 'utf8');
+  // v1.53p：计划图片保存到系统相册——Android 9 及以下才需要写外部存储权限（10+ 走 MediaStore 无需权限）。
+  // 必须在 WidgetActionReceiver 守卫之外注入：老工程早已注入过 receiver，守卫内会跳过。
+  if (!x.includes('WRITE_EXTERNAL_STORAGE')) {
+    x = x.replace(
+      '<application',
+      '<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />\n\n    <application'
+    );
+  }
   if (!x.includes('WidgetActionReceiver')) {
     if (!x.includes('RECEIVE_BOOT_COMPLETED')) {
       x = x.replace(
