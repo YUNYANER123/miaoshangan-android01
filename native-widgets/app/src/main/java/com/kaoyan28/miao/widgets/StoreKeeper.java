@@ -88,6 +88,9 @@ public class StoreKeeper {
             File tmp = new File(d, FILE + ".tmp");
             File bak = new File(d, FILE + ".bak");
             String prev = readAll(main);
+            // v1.53r⑩：JS 主动分片写入与原生轮询可能并发，较旧的轮询结果不得覆盖较新的文件。
+            long incomingTs = tsOf(raw);
+            if (incomingTs > 0 && valid(prev) && tsOf(prev) > incomingTs) return false;
             if (valid(prev)) {
                 FileOutputStream bo = new FileOutputStream(bak);
                 bo.write(prev.getBytes(StandardCharsets.UTF_8));
@@ -265,10 +268,11 @@ public class StoreKeeper {
         try {
             // 任一分片丢失都会让 JSON 不完整 → valid() 拒绝，绝不写坏文件
             if (data.startsWith("{") && data.endsWith("}")) {
+                // 无论写成功与否都记下这个 ts，避免被较新的插件写入挡掉后每 250ms 重读 40 片
+                lastSeenTs = t;
                 String raw = wrap(t, data);
                 if (!raw.isEmpty() && writeRaw(ctx, raw)) {
                     fileTs = t;
-                    lastSeenTs = t;
                     if (cleared) {
                         wv.evaluateJavascript(
                             "(function(){try{localStorage.removeItem('" + CLEARED + "')}catch(e){}})()", null);
