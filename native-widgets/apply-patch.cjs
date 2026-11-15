@@ -55,7 +55,7 @@ if (fs.existsSync(mainAct)) {
     }
     m = m.replace(
       /(package com\.kaoyan28\.miao;)/,
-      '$1\nimport com.kaoyan28.miao.widgets.KaoyanBridge;\nimport com.kaoyan28.miao.widgets.NativeStoreBridge;'
+      '$1\nimport com.kaoyan28.miao.widgets.KaoyanBridge;'
     );
     if (m.includes('super.onCreate')) {
       m = m.replace(
@@ -84,7 +84,9 @@ if (fs.existsSync(mainAct)) {
         '            ws.setSupportZoom(false);\n' +
         '            ws.setBuiltInZoomControls(false);\n' +
         '            ws.setDisplayZoomControls(false);\n' +
-        '            wv.addJavascriptInterface(new NativeStoreBridge(this), "NativeStore");\n' +
+        // v1.53r⑦：不再注册 addJavascriptInterface。它在 super.onCreate() 之后执行，
+        // 而 Capacitor 那时已 loadUrl，注入对象要等页面 reload 才可见 → 页面里恒为 undefined。
+        // 主存档改走 KaoyanBridge 插件的 getStore/putStore；避免两个通道并发写同一文件互相截断。
         '          }\n' +
         '        } catch (Exception ignore) {}'
       );
