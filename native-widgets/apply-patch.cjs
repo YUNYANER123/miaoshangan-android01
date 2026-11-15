@@ -148,6 +148,60 @@ if (fs.existsSync(mainAct)) {
   }
 }
 
+// ---- 3c: 主存档原生持久化（v1.53r⑧） ----
+// 不再依赖 Capacitor 插件 / addJavascriptInterface（前两版在这两条通道上连续失效）。
+// Activity 起一个 StoreKeeper，用 WebView.evaluateJavascript 主动把 localStorage
+// 备份到 getFilesDir()/kaoyan_store.json；冷启动时若原生文件较新就注入回页面并
+// 调用 window.__kaoyanRestore() 重绘。onPause/onStop 再立刻 flush 一次防进程被杀。
+if (fs.existsSync(mainAct)) {
+  let m = fs.readFileSync(mainAct, 'utf8');
+  if (!m.includes('mStoreKeeper')) {
+    m = m.replace(
+      /(public class MainActivity extends BridgeActivity \{)/,
+      '$1\n    private com.kaoyan28.miao.widgets.StoreKeeper mStoreKeeper;'
+    );
+    m = m.replace(
+      'super.onCreate(savedInstanceState);',
+      'super.onCreate(savedInstanceState);\n' +
+      '        try {\n' +
+      // 只在 MainActivity（BridgeActivity 子类）内部取 WebView：getBridge() 不保证是 public，
+      // 跨包放进 StoreKeeper 会编译不过。重试 20 次（8 秒）直到 Bridge / WebView 就绪。
+      '            final android.os.Handler __skH = new android.os.Handler(android.os.Looper.getMainLooper());\n' +
+      '            __skH.post(new Runnable() {\n' +
+      '                int tries = 0;\n' +
+      '                @Override public void run() {\n' +
+      '                    try {\n' +
+      '                        android.webkit.WebView __skWv = (getBridge() != null) ? getBridge().getWebView() : null;\n' +
+      '                        if (__skWv != null) {\n' +
+      '                            mStoreKeeper = new com.kaoyan28.miao.widgets.StoreKeeper(MainActivity.this, __skWv);\n' +
+      '                            mStoreKeeper.start();\n' +
+      '                        } else if (++tries < 20) { __skH.postDelayed(this, 400); }\n' +
+      '                    } catch (Exception ignore) {}\n' +
+      '                }\n' +
+      '            });\n' +
+      '        } catch (Exception ignore) {}'
+    );
+    const skMethods =
+      '\n' +
+      '    @Override\n' +
+      '    protected void onPause() {\n' +
+      '        try { if (mStoreKeeper != null) mStoreKeeper.flush(); } catch (Exception ignore) {}\n' +
+      '        super.onPause();\n' +
+      '    }\n' +
+      '    @Override\n' +
+      '    protected void onStop() {\n' +
+      '        try { if (mStoreKeeper != null) mStoreKeeper.flush(); } catch (Exception ignore) {}\n' +
+      '        super.onStop();\n' +
+      '    }\n';
+    const ci2 = m.lastIndexOf('}');
+    m = m.slice(0, ci2) + skMethods + m.slice(ci2);
+    fs.writeFileSync(mainAct, m);
+    log('patched MainActivity.java (StoreKeeper: native localStorage backup/restore + onPause/onStop flush)');
+  } else {
+    log('MainActivity.java already patched for StoreKeeper');
+  }
+}
+
 // ---- 4: AndroidManifest ----
 const mf = path.join(ANDROID, 'app', 'src', 'main', 'AndroidManifest.xml');
 if (fs.existsSync(mf)) {
