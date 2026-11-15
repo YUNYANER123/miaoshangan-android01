@@ -9,7 +9,7 @@
  *   1. copy Java sources  -> android/app/src/main/java/...
  *   2. copy res (drawable/layout/values/xml) -> android/app/src/main/res/...
  *   3. register the KaoyanBridge plugin in MainActivity
- *   4. declare the 10 AppWidgetProviders + the interaction receiver in the manifest
+ *   4. declare the 7 AppWidgetProviders + the interaction receiver in the manifest
  *
  * Idempotent: safe to run more than once.
  */
@@ -55,7 +55,7 @@ if (fs.existsSync(mainAct)) {
     }
     m = m.replace(
       /(package com\.kaoyan28\.miao;)/,
-      '$1\nimport com.kaoyan28.miao.widgets.KaoyanBridge;'
+      '$1\nimport com.kaoyan28.miao.widgets.KaoyanBridge;\nimport com.kaoyan28.miao.widgets.NativeStoreBridge;'
     );
     if (m.includes('super.onCreate')) {
       m = m.replace(
@@ -84,6 +84,7 @@ if (fs.existsSync(mainAct)) {
         '            ws.setSupportZoom(false);\n' +
         '            ws.setBuiltInZoomControls(false);\n' +
         '            ws.setDisplayZoomControls(false);\n' +
+        '            wv.addJavascriptInterface(new NativeStoreBridge(this), "NativeStore");\n' +
         '          }\n' +
         '        } catch (Exception ignore) {}'
       );
@@ -149,14 +150,6 @@ if (fs.existsSync(mainAct)) {
 const mf = path.join(ANDROID, 'app', 'src', 'main', 'AndroidManifest.xml');
 if (fs.existsSync(mf)) {
   let x = fs.readFileSync(mf, 'utf8');
-  // v1.53p：计划图片保存到系统相册——Android 9 及以下才需要写外部存储权限（10+ 走 MediaStore 无需权限）。
-  // 必须在 WidgetActionReceiver 守卫之外注入：老工程早已注入过 receiver，守卫内会跳过。
-  if (!x.includes('WRITE_EXTERNAL_STORAGE')) {
-    x = x.replace(
-      '<application',
-      '<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />\n\n    <application'
-    );
-  }
   if (!x.includes('WidgetActionReceiver')) {
     if (!x.includes('RECEIVE_BOOT_COMPLETED')) {
       x = x.replace(
@@ -172,10 +165,6 @@ if (fs.existsSync(mf)) {
       ['MathWidget', 'widget_math', '数学今日题'],
       ['MajorPointsWidget', 'widget_major_points', '专业课知识点'],
       ['MajorQuizWidget', 'widget_major_quiz', '专业课题目'],
-      // v1.53m③：倒数日组件（1 个 2×2 / 2 个 4×2 / 4 个 4×3）
-      ['Countdown1Widget', 'widget_cd1', '倒数日（1 个）'],
-      ['Countdown2Widget', 'widget_cd2', '倒数日（2 个）'],
-      ['Countdown4Widget', 'widget_cd4', '倒数日（4 个）'],
     ];
     let block = '\n        <!-- 喵上岸 桌面小组件 -->\n';
     block +=
@@ -225,35 +214,6 @@ if (fs.existsSync(mf)) {
   }
 } else {
   log('WARN: AndroidManifest.xml not found at ' + mf);
-}
-
-// ---- 3c: 硬件返回键页面内返回 ----
-// 覆盖 onBackPressed：优先交给网页 window.__onHwBack() 处理（关弹窗 / 返回上一页），
-// 仅当网页返回 'exit'（已在根页面且无弹窗）时才真正 finish，避免一按返回就退到桌面。
-if (fs.existsSync(mainAct)) {
-  let m = fs.readFileSync(mainAct, 'utf8');
-  if (!m.includes('onBackPressed')) {
-    const backMethod =
-      '\n' +
-      '    @Override\n' +
-      '    public void onBackPressed() {\n' +
-      '        android.webkit.WebView wv = (getBridge() != null) ? getBridge().getWebView() : null;\n' +
-      '        if (wv != null) {\n' +
-      '            wv.evaluateJavascript("window.__onHwBack ? window.__onHwBack() : \\"exit\\"", value -> {\n' +
-      '                if (value == null || value.contains("exit")) { MainActivity.this.realBack(); }\n' +
-      '            });\n' +
-      '        } else {\n' +
-      '            super.onBackPressed();\n' +
-      '        }\n' +
-      '    }\n' +
-      '    public void realBack() { super.onBackPressed(); }\n';
-    const ci = m.lastIndexOf('}');
-    m = m.slice(0, ci) + backMethod + m.slice(ci);
-    fs.writeFileSync(mainAct, m);
-    log('patched MainActivity.java (硬件返回键 → JS window.__onHwBack)');
-  } else {
-    log('MainActivity.java already patched for onBackPressed');
-  }
 }
 
 log('done.');
