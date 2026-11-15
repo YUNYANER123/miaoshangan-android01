@@ -181,15 +181,17 @@ if (fs.existsSync(mainAct)) {
       '            });\n' +
       '        } catch (Exception ignore) {}'
     );
+    // BridgeActivity 的 onPause/onStop 是 public，覆盖时不能降级为 protected
+    // （run#77 曾因此编译失败：attempting to assign weaker access privileges; was public）
     const skMethods =
       '\n' +
       '    @Override\n' +
-      '    protected void onPause() {\n' +
+      '    public void onPause() {\n' +
       '        try { if (mStoreKeeper != null) mStoreKeeper.flush(); } catch (Exception ignore) {}\n' +
       '        super.onPause();\n' +
       '    }\n' +
       '    @Override\n' +
-      '    protected void onStop() {\n' +
+      '    public void onStop() {\n' +
       '        try { if (mStoreKeeper != null) mStoreKeeper.flush(); } catch (Exception ignore) {}\n' +
       '        super.onStop();\n' +
       '    }\n';
