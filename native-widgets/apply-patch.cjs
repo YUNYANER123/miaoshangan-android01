@@ -164,18 +164,18 @@ if (fs.existsSync(mainAct)) {
       'super.onCreate(savedInstanceState);',
       'super.onCreate(savedInstanceState);\n' +
       '        try {\n' +
-      // 只在 MainActivity（BridgeActivity 子类）内部取 WebView：getBridge() 不保证是 public，
-      // 跨包放进 StoreKeeper 会编译不过。重试 20 次（8 秒）直到 Bridge / WebView 就绪。
+      // r⑨：不再用 getBridge().getWebView()（它可能长期为 null，导致 r⑧ 的 StoreKeeper 根本没启动）。
+      // 改为遍历 Activity 的 View 树直接找 WebView，完全不依赖 Capacitor API。
       '            final android.os.Handler __skH = new android.os.Handler(android.os.Looper.getMainLooper());\n' +
       '            __skH.post(new Runnable() {\n' +
       '                int tries = 0;\n' +
       '                @Override public void run() {\n' +
       '                    try {\n' +
-      '                        android.webkit.WebView __skWv = (getBridge() != null) ? getBridge().getWebView() : null;\n' +
+      '                        android.webkit.WebView __skWv = findWebView(getWindow().getDecorView());\n' +
       '                        if (__skWv != null) {\n' +
       '                            mStoreKeeper = new com.kaoyan28.miao.widgets.StoreKeeper(MainActivity.this, __skWv);\n' +
       '                            mStoreKeeper.start();\n' +
-      '                        } else if (++tries < 20) { __skH.postDelayed(this, 400); }\n' +
+      '                        } else if (++tries < 30) { __skH.postDelayed(this, 300); }\n' +
       '                    } catch (Exception ignore) {}\n' +
       '                }\n' +
       '            });\n' +
@@ -184,6 +184,19 @@ if (fs.existsSync(mainAct)) {
     // BridgeActivity 的 onPause/onStop 是 public，覆盖时不能降级为 protected
     // （run#77 曾因此编译失败：attempting to assign weaker access privileges; was public）
     const skMethods =
+      '\n' +
+      '    /** 遍历 View 树找 WebView：不依赖 Capacitor 的 getBridge()，避免拿不到 WebView 时永久跳过 */\n' +
+      '    private android.webkit.WebView findWebView(android.view.View v) {\n' +
+      '        if (v instanceof android.webkit.WebView) return (android.webkit.WebView) v;\n' +
+      '        if (v instanceof android.view.ViewGroup) {\n' +
+      '            android.view.ViewGroup g = (android.view.ViewGroup) v;\n' +
+      '            for (int i = 0; i < g.getChildCount(); i++) {\n' +
+      '                android.webkit.WebView w = findWebView(g.getChildAt(i));\n' +
+      '                if (w != null) return w;\n' +
+      '            }\n' +
+      '        }\n' +
+      '        return null;\n' +
+      '    }\n' +
       '\n' +
       '    @Override\n' +
       '    public void onPause() {\n' +

@@ -16,43 +16,41 @@ import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
 
 /**
- * 主存档的原生持久化（v1.53r⑧）。
+ * 主存档的原生持久化（v1.53r⑨）。
  *
- * 不再假设「JS 能主动调到原生」：
- *   - r⑥ 的 addJavascriptInterface 注册在 super.onCreate() 之后，Capacitor 那时已 loadUrl，
- *     页面里 window.NativeStore 恒为 undefined；
- *   - r⑦ 改走 KaoyanBridge 插件 getStore/putStore，但插件通道是否可用依然无法保证，
- *     用户实测重进 App 数据仍被初始化。
- * 这里改为由原生侧主动用 WebView.evaluateJavascript 直接读写 localStorage：
- *   - 每 2 秒（以及 onPause/onStop）把 kaoyan28_v1 + 时间戳备份到
- *     getFilesDir()/kaoyan_store.json，原子写 + .bak 兜底；
- *   - 冷启动时若原生文件比 localStorage 新（或 localStorage 为空 / 明显被重置），
- *     把数据注入回 localStorage，并调用 window.__kaoyanRestore() 让页面重绘。
- * 只要 WebView 能执行 JS，存档就一定在；不依赖插件注册、注入对象时序或 JS 主动调用。
- * WebView 每轮都会重新尝试获取，避免 Bridge 尚未就绪时永久跳过。
+ * r⑥/r⑦/r⑧ 连续三次失效，看用户录屏后找到共同点：备份 JSON 约 480 KB，
+ * 而三版都在把整份 store 一次性跨 JS↔原生通道传（插件参数 / evaluateJavascript 返回值）。
+ * Android WebView 的 bridge 对单次大字符串会截断或返回 null，于是「写入」每次都静默失败，
+ * 原生文件从来没真正生成；r⑧ 还依赖 getBridge().getWebView() 取 WebView，也可能一直没拿到。
+ *
+ * r⑨ 两条硬约束：
+ *   1) 所有跨 bridge 的字符串都 <= CHUNK(12000 字符)，整份数据分片串行传输；
+ *   2) WebView 由 MainActivity 遍历 View 树取得，不碰任何 Capacitor API。
+ * 另外轮询从 2s 缩到 250ms：录屏里「导入成功 → 点打卡 → 清后台」只有约 1.4 秒，
+ * 2 秒轮询根本来不及写第一份存档。
  */
 public class StoreKeeper {
     public static final String FILE = "kaoyan_store.json";
     private static final String KEY = "kaoyan28_v1";
     private static final String TS_KEY = "kaoyan28_v1_ts";
     private static final String CLEARED = "kaoyan28_v1_cleared";
-    private static final long POLL_MS = 2000;
+    private static final String PART = "__sk_p";
+    private static final int CHUNK = 12000;
+    private static final long POLL_MS = 250;
 
     private final Context ctx;
     private final WebView wv;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private boolean restored = false;
+    private boolean busy = false;
     private long lastSeenTs = -1;
     private long fileTs = 0;
     private String startupRaw = "";
 
-    /** WebView 由 MainActivity（BridgeActivity 子类）在就绪后传入，避免跨包调用 getBridge()。 */
     public StoreKeeper(Context c, WebView v) {
         ctx = c.getApplicationContext();
         wv = v;
     }
-
-    private WebView webView() { return wv; }
 
     /* ---------- 文件层：插件通道也复用这里，静态 synchronized 避免并发写互相截断 ---------- */
     private static File mainFile(Context c) { return new File(c.getFilesDir(), FILE); }
@@ -78,7 +76,6 @@ public class StoreKeeper {
     public static synchronized String readRaw(Context c) {
         String s = readAll(mainFile(c));
         if (valid(s)) return s;
-        // 主文件被写坏/不存在 → 回退上一份备份，绝不因为一次半截写入丢全部数据
         String bak = readAll(new File(c.getFilesDir(), FILE + ".bak"));
         return valid(bak) ? bak : "";
     }
@@ -102,8 +99,7 @@ public class StoreKeeper {
             out.flush();
             out.getFD().sync();
             out.close();
-            // File.renameTo 在「目标文件已存在」时部分 Android 文件系统会直接失败，
-            // 导致主文件永远停在第一次写入的内容 → 先删除目标再改名；失败则从 .bak 回滚。
+            // renameTo 在目标已存在时部分 Android 文件系统会失败 → 先删再改名，失败从 .bak 回滚
             if (main.exists() && !main.delete()) { /* 继续尝试 rename */ }
             if (!tmp.renameTo(main)) {
                 if (valid(prev)) {
@@ -131,7 +127,6 @@ public class StoreKeeper {
         } catch (Exception e) { return ""; }
     }
 
-    /* ---------- WebView 层 ---------- */
     /** evaluateJavascript 返回的是 JSON 编码的字符串，需反转义成原始文本。 */
     private static String unquote(String v) {
         if (v == null || v.equals("null")) return "";
@@ -139,108 +134,148 @@ public class StoreKeeper {
         catch (Exception e) { return v.replaceAll("^\"|\"$", ""); }
     }
 
+    /* ---------- 生命周期 ---------- */
     public void start() {
         startupRaw = readRaw(ctx);
         fileTs = tsOf(startupRaw);
-        handler.postDelayed(ticker, 600);
+        handler.postDelayed(ticker, 300);
     }
 
-    /** Activity.onPause / onStop 时立刻再备份一次，避免轮询间隔内被杀进程。 */
-    public void flush() { backupNow(); }
+    public void flush() { if (!busy) backupNow(); }
 
     private final Runnable ticker = new Runnable() {
         public void run() {
             try {
                 if (!restored) tryRestore();
-                backupNow();
+                if (!busy) backupNow();
             } catch (Exception ignore) { }
             handler.postDelayed(this, POLL_MS);
         }
     };
 
-    /** 等到页面真正就绪（app.js 已执行完 load()）再注入，避免在 about:blank 上白注入。 */
+    /* ---------- 恢复：原生文件分片注入 localStorage ---------- */
     private void tryRestore() {
         if (startupRaw.isEmpty()) { restored = true; return; }
-        final WebView v = webView();
-        if (v == null) return;
-        v.evaluateJavascript(
+        wv.evaluateJavascript(
             "(function(){try{" +
             "if(document.readyState!=='complete'||!document.getElementById('app'))return 'WAIT';" +
-            "var c='';try{c=localStorage.getItem('" + CLEARED + "')||''}catch(e){}" +
-            "return c==='1'?'CLEARED':'READY'}catch(e){return 'WAIT'}})()",
+            "var c='',cur='',ct=0;" +
+            "try{c=localStorage.getItem('" + CLEARED + "')||'';" +
+            "cur=localStorage.getItem('" + KEY + "')||'';" +
+            "ct=+(localStorage.getItem('" + TS_KEY + "')||0)||0}catch(e){}" +
+            "return JSON.stringify({s:c==='1'?'CLEARED':'READY',n:cur.length,t:ct})}catch(e){return 'WAIT'}})()",
             new ValueCallback<String>() {
                 public void onReceiveValue(String r) {
-                    if (r == null || (!r.contains("READY") && !r.contains("CLEARED"))) return;
-                    restored = true;
-                    // 用户在设置页主动「清空所有数据」：不要用旧存档覆盖这次清空。
-                    // backupNow() 会把新的空存档写进文件并清掉标记。
-                    if (r.contains("CLEARED")) return;
-                    String quoted = JSONObject.quote(startupRaw);
-                    String js =
-                        "(function(){try{" +
-                        "var o=JSON.parse(" + quoted + ");" +
-                        "var cur='',ct=0;" +
-                        "try{cur=localStorage.getItem('" + KEY + "')||'';" +
-                        "ct=+(localStorage.getItem('" + TS_KEY + "')||0)||0}catch(e){}" +
-                        "var nt=+(o.ts||0)||0;" +
-                        "var d=String(o.data||'');" +
-                        // 三种情况都恢复：本地被清空 / 原生文件更新 / 本地被重置成 defaults
-                        // （defaults 的 JSON 远小于含计划、单词进度、备忘录的真实存档）
-                        "if(!cur||nt>ct||(nt>0&&d.length>cur.length+500)){" +
-                        "  localStorage.setItem('" + KEY + "',d);" +
-                        "  localStorage.setItem('" + TS_KEY + "',String(nt));" +
-                        "  if(typeof window.__kaoyanRestore==='function'){window.__kaoyanRestore(d);}" +
-                        "  return 'RESTORED';}" +
-                        "return 'LOCAL_NEWER';}catch(e){return 'ERR:'+e.message}})()";
-                    v.evaluateJavascript(js, null);
-                }
-            });
-    }
-
-    /** 先只读一个很小的时间戳，变了才读整份数据，避免每 2 秒回传大字符串。 */
-    private void backupNow() {
-        final WebView v = webView();
-        if (v == null) return;
-        v.evaluateJavascript(
-            "(function(){try{return String(+(localStorage.getItem('" + TS_KEY + "')||0)||0)}catch(e){return '0'}})()",
-            new ValueCallback<String>() {
-                public void onReceiveValue(String r) {
-                    long t;
-                    try { t = Long.parseLong(unquote(r).trim()); } catch (Exception e) { return; }
-                    if (t <= 0 || t == lastSeenTs || t <= fileTs) return;
-                    lastSeenTs = t;
-                    readAndWrite(t);
-                }
-            });
-    }
-
-    private void readAndWrite(final long t) {
-        final WebView v = webView();
-        if (v == null) return;
-        v.evaluateJavascript(
-            "(function(){try{return JSON.stringify({d:localStorage.getItem('" + KEY + "')||''," +
-            "c:localStorage.getItem('" + CLEARED + "')||''})}catch(e){return ''}})()",
-            new ValueCallback<String>() {
-                public void onReceiveValue(String r) {
-                    String obj = unquote(r);
-                    if (obj == null || !obj.startsWith("{")) return;
-                    String data = "";
-                    boolean cleared = false;
+                    String o = unquote(r);
+                    if (o == null || !o.startsWith("{")) return;
                     try {
-                        JSONObject o = new JSONObject(obj);
-                        data = o.optString("d", "");
-                        cleared = "1".equals(o.optString("c", ""));
-                    } catch (Exception e) { return; }
-                    if (!data.startsWith("{") || !data.endsWith("}")) return;
-                    String raw = wrap(t, data);
-                    if (!raw.isEmpty() && writeRaw(ctx, raw)) {
-                        fileTs = t;
-                        if (cleared) {
-                            v.evaluateJavascript(
-                                "(function(){try{localStorage.removeItem('" + CLEARED + "')}catch(e){}})()", null);
+                        JSONObject j = new JSONObject(o);
+                        restored = true;
+                        // 用户主动「清空所有数据」：不要用旧存档顶回来
+                        if ("CLEARED".equals(j.optString("s"))) return;
+                        JSONObject file = new JSONObject(startupRaw);
+                        long nt = file.optLong("ts", 0);
+                        String data = file.optString("data", "");
+                        long ct = j.optLong("t", 0);
+                        int localLen = j.optInt("n", 0);
+                        if (!(localLen == 0 || nt > ct || (nt > 0 && data.length() > localLen + 500))) return;
+                        injectChunked(data, nt);
+                    } catch (Exception ignore) { }
+                }
+            });
+    }
+
+    private void injectChunked(final String data, final long ts) {
+        final int n = (data.length() + CHUNK - 1) / CHUNK;
+        final int[] i = {0};
+        final Runnable[] step = new Runnable[1];
+        step[0] = new Runnable() {
+            public void run() {
+                if (i[0] >= n) {
+                    wv.evaluateJavascript(
+                        "(function(){try{var s='';" +
+                        "for(var k=0;k<" + n + ";k++){s+=localStorage.getItem('" + PART + "'+k)||'';" +
+                        "localStorage.removeItem('" + PART + "'+k)}" +
+                        "localStorage.setItem('" + KEY + "',s);" +
+                        "localStorage.setItem('" + TS_KEY + "',String(" + ts + "));" +
+                        "if(typeof window.__kaoyanRestore==='function'){window.__kaoyanRestore(s);}" +
+                        "return 'ok'}catch(e){return 'err'}})()", null);
+                    return;
+                }
+                final int idx = i[0]++;
+                String part = data.substring(idx * CHUNK, Math.min(data.length(), (idx + 1) * CHUNK));
+                wv.evaluateJavascript(
+                    "(function(){try{localStorage.setItem('" + PART + idx + "'," + JSONObject.quote(part) + ");return 'ok'}catch(e){return 'err'}})()",
+                    new ValueCallback<String>() {
+                        public void onReceiveValue(String v) { handler.post(step[0]); }
+                    });
+            }
+        };
+        handler.post(step[0]);
+    }
+
+    /* ---------- 备份：先读小状态，再分片读完整数据 ---------- */
+    private void backupNow() {
+        if (busy) return;
+        wv.evaluateJavascript(
+            "(function(){try{return JSON.stringify({t:+(localStorage.getItem('" + TS_KEY + "')||0)||0," +
+            "c:localStorage.getItem('" + CLEARED + "')||''," +
+            "n:(localStorage.getItem('" + KEY + "')||'').length})}catch(e){return '0'}})()",
+            new ValueCallback<String>() {
+                public void onReceiveValue(String r) {
+                    String o = unquote(r);
+                    if (o == null || !o.startsWith("{")) return;
+                    try {
+                        JSONObject j = new JSONObject(o);
+                        long t = j.optLong("t", 0);
+                        final boolean cleared = "1".equals(j.optString("c", ""));
+                        final int len = j.optInt("n", 0);
+                        if (t <= 0 || t == lastSeenTs || t <= fileTs || len == 0) return;
+                        busy = true;
+                        readChunks(t, len, cleared);
+                    } catch (Exception ignore) { }
+                }
+            });
+    }
+
+    private void readChunks(final long t, final int len, final boolean cleared) {
+        final int n = (len + CHUNK - 1) / CHUNK;
+        final StringBuilder sb = new StringBuilder();
+        final int[] i = {0};
+        final Runnable[] step = new Runnable[1];
+        step[0] = new Runnable() {
+            public void run() {
+                if (i[0] >= n) { finishBackup(t, sb.toString(), cleared); return; }
+                final int idx = i[0]++;
+                wv.evaluateJavascript(
+                    "(function(){try{return (localStorage.getItem('" + KEY + "')||'').slice(" +
+                    (idx * CHUNK) + "," + ((idx + 1) * CHUNK) + ")}catch(e){return ''}})()",
+                    new ValueCallback<String>() {
+                        public void onReceiveValue(String v) {
+                            sb.append(unquote(v));
+                            handler.post(step[0]);
                         }
+                    });
+            }
+        };
+        handler.post(step[0]);
+    }
+
+    private void finishBackup(long t, String data, boolean cleared) {
+        try {
+            // 任一分片丢失都会让 JSON 不完整 → valid() 拒绝，绝不写坏文件
+            if (data.startsWith("{") && data.endsWith("}")) {
+                String raw = wrap(t, data);
+                if (!raw.isEmpty() && writeRaw(ctx, raw)) {
+                    fileTs = t;
+                    lastSeenTs = t;
+                    if (cleared) {
+                        wv.evaluateJavascript(
+                            "(function(){try{localStorage.removeItem('" + CLEARED + "')}catch(e){}})()", null);
                     }
                 }
-            });
+            }
+        } catch (Exception ignore) { }
+        finally { busy = false; }
     }
 }
