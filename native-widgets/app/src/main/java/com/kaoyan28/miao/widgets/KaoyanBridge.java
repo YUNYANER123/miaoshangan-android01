@@ -211,4 +211,22 @@ public class KaoyanBridge extends Plugin {
             call.reject("save failed: " + e.getMessage());
         }
     }
+
+    // v1.53r⑫：返回 APK 的实际版本号（build.gradle 里 versionName="1.<run_number>"，如 1.81）。
+    // 修复设置页「当前版本」只显示「原生版」——Capacitor App 插件本工程未注册，getInfo 拿不到值，
+    // 之前 JS 误以为没有能力就直接显示「原生版」。这里用 PackageManager 读真实 versionName。
+    @PluginMethod()
+    public void getAppVersion(PluginCall call) {
+        JSObject r = new JSObject();
+        try {
+            android.content.pm.PackageInfo pi = getContext().getPackageManager()
+                    .getPackageInfo(getContext().getPackageName(), 0);
+            r.put("version", pi.versionName == null ? "" : pi.versionName);
+            r.put("build", String.valueOf(pi.versionCode));
+        } catch (Exception e) {
+            r.put("version", "");
+            r.put("build", "");
+        }
+        call.resolve(r);
+    }
 }
